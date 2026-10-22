@@ -1,0 +1,35 @@
+name: euc_onewheel
+description: "EUC OneWheel — app para rodar en monociclo eléctrico: grabación de rodadas con GPS real, historial y (fase 2) telemetría Bluetooth de la rueda."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  geolocator: ^14.0.2
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  path_provider: ^2.1.5
+  intl: ^0.20.2
+  share_plus: ^12.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.jpg
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+  remove_alpha_ios: true

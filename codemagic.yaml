@@ -1,0 +1,108 @@
+# =============================================================================
+# EUC OneWheel — Compilación en la nube con Codemagic
+# =============================================================================
+# Este archivo le dice a Codemagic cómo compilar la app de iOS y enviarla
+# a TestFlight automáticamente. NO contiene ninguna contraseña ni clave:
+# todas las credenciales viven en Codemagic (nunca en este archivo).
+#
+# ANTES DE USARLO, Mikro debe crear dos cosas dentro de Codemagic
+# (panel web de codemagic.io → su equipo → "Integrations" y el apartado
+# de variables de entorno de la app):
+#
+#   1. Una integración con App Store Connect llamada EXACTAMENTE
+#      "EUC OneWheel ASC" (es el nombre que aparece más abajo; si le
+#      pone otro nombre, hay que cambiarlo también en este archivo).
+#      Para crearla se necesita una clave de API de App Store Connect:
+#      en appstoreconnect.apple.com → "Usuarios y acceso" → "Claves" →
+#      rol "Administración de la app" (App Manager) → descargar el
+#      archivo .p8 y anotar el Issuer ID y el Key ID.
+#
+#   2. Un grupo de variables de entorno llamado "credenciales_app_store"
+#      con estas tres variables (los valores salen de la clave de API
+#      del punto 1; se pegan en Codemagic, JAMÁS en este repositorio):
+#        APP_STORE_CONNECT_ISSUER_ID        → el Issuer ID de la clave
+#        APP_STORE_CONNECT_KEY_IDENTIFIER   → el Key ID de la clave
+#        APP_STORE_CONNECT_PRIVATE_KEY      → el contenido del archivo .p8
+#      La variable de la llave (.p8) debe marcarse como "Secure" en
+#      Codemagic para que quede cifrada.
+#
+# Además hace falta que la app ya exista en App Store Connect con el
+# bundle id com.euconewheel.eucOnewheel (ver el README, sección
+# "El día de la instalación").
+# =============================================================================
+
+workflows:
+  # ---------------------------------------------------------------------------
+  # Único flujo de la v1: compila iOS en Release, firma la app con la
+  # clave de API de App Store Connect y la sube a TestFlight.
+  # Se dispara a mano desde el panel de Codemagic ("Start new build").
+  # ---------------------------------------------------------------------------
+  ios-testflight:
+    name: iOS a TestFlight
+    # Máquina Mac de Codemagic (obligatoria para compilar iOS).
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    # Integración con App Store Connect: debe llamarse igual que la que
+    # se cree en el panel de Codemagic (ver la explicación de arriba).
+    integrations:
+      app_store_connect: EUC OneWheel ASC
+    environment:
+      # Versiones de herramientas: siempre la estable más reciente.
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        # Bundle id REAL de iOS (el de ios/Runner.xcodeproj). Ojo con la
+        # mayúscula: es "eucOnewheel", tal cual.
+        BUNDLE_ID: "com.euconewheel.eucOnewheel"
+        XCODE_WORKSPACE: "ios/Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      # Grupo de variables con la clave de API de App Store Connect.
+      # Los valores se escriben en Codemagic, no aquí (ver arriba).
+      groups:
+        - credenciales_app_store
+    scripts:
+      # 1) Descarga las dependencias de Flutter del proyecto.
+      - name: Descargar dependencias de Flutter
+        script: flutter pub get
+      # 2) Prepara un llavero temporal donde guardar el certificado
+      #    de firma durante la compilación.
+      - name: Preparar llavero para la firma
+        script: keychain initialize
+      # 3) Descarga (o crea si no existen) el certificado y el perfil de
+      #    distribución de la app, usando la clave de API de App Store
+      #    Connect. Esto es la "firma automática": Apple genera todo y
+      #    no hay que crear certificados a mano.
+      - name: Obtener certificado y perfil de firma
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+      # 4) Instala el certificado descargado en el llavero temporal.
+      - name: Instalar certificado en el llavero
+        script: keychain add-certificates
+      # 5) Aplica el perfil de firma al proyecto de Xcode.
+      - name: Aplicar el perfil de firma al proyecto
+        script: xcode-project use-profiles
+      # 6) Instala las dependencias nativas de iOS (CocoaPods).
+      - name: Instalar dependencias de iOS (Pods)
+        script: |
+          cd ios
+          pod install
+      # 7) Compila la app en modo Release y genera el .ipa firmado,
+      #    listo para TestFlight, en build/ios/ipa/.
+      - name: Compilar el .ipa (Release)
+        script: flutter build ipa --release
+    # Archivos que Codemagic guarda al terminar la compilación: el .ipa
+    # instalable y los registros de la compilación de Xcode (útiles si
+    # algo falla y hay que revisar el error).
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      # Publicación automática al terminar: sube el .ipa a App Store
+      # Connect usando la integración (auth: integration) y lo deja
+      # disponible en TestFlight para instalarlo en el iPhone.
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
