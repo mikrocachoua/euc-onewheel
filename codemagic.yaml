@@ -84,11 +84,7 @@ workflows:
       # 5) Aplica el perfil de firma al proyecto de Xcode.
       - name: Aplicar el perfil de firma al proyecto
         script: xcode-project use-profiles
-      # 6) Instala las dependencias nativas de iOS (CocoaPods).
-      - name: Instalar dependencias de iOS (Pods)
-        script: |
-          cd ios
-          pod install
+      
       # 7) Compila la app en modo Release y genera el .ipa firmado,
       #    listo para TestFlight, en build/ios/ipa/.
       - name: Compilar el .ipa (Release)
