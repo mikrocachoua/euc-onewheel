@@ -122,7 +122,28 @@ class BleService {
   Future<void> startScan({
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    if (FlutterBluePlus.adapterStateNow != BluetoothAdapterState.on) {
+    // En iOS el adaptador arranca en «unknown» (iOS está mostrando el
+    // diálogo de permiso de Bluetooth o encendiendo el radio): hay que
+    // esperar a que el estado se asiente en uno definitivo, no fallar
+    // al instante contra ese estado transitorio.
+    var state = adapterStateNow;
+    if (state == BluetoothAdapterState.unknown ||
+        state == BluetoothAdapterState.turningOn) {
+      state = await adapterState
+          .firstWhere((s) =>
+              s != BluetoothAdapterState.unknown &&
+              s != BluetoothAdapterState.turningOn)
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => adapterStateNow,
+          );
+    }
+    if (state == BluetoothAdapterState.unauthorized) {
+      throw const BleException(
+          'El permiso de Bluetooth está denegado para la app. Actívalo '
+          'en Ajustes → EUC OneWheel → Bluetooth.');
+    }
+    if (state != BluetoothAdapterState.on) {
       throw const BleException(
           'El Bluetooth del teléfono está apagado: actívalo para buscar tu rueda.');
     }
