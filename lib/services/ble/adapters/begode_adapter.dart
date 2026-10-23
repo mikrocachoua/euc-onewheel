@@ -2,9 +2,10 @@ import 'dart:typed_data';
 
 import '../../../models/wheel_capabilities.dart';
 import '../../../models/wheel_identity.dart';
+import '../wheel_command.dart';
 import 'wheel_adapter.dart';
 
-/// Adaptador Begode (Gotway) — **solo telemetría** en esta fase.
+/// Adaptador Begode (Gotway): telemetría y comandos de control.
 ///
 /// Protocolo: flujo continuo sin polling sobre el transporte serie
 /// compartido (`ffe0/ffe1`). Tramas binarias de **24 bytes** con
@@ -144,7 +145,17 @@ class BegodeAdapter extends BaseWheelAdapter {
   WheelBrand get brand => WheelBrand.begode;
 
   @override
-  WheelCapabilities get capabilities => WheelCapabilities.telemetryOnly;
+  WheelCapabilities get capabilities => const WheelCapabilities(
+        telemetry: true,
+        lights: true,
+        beep: true,
+        led: true,
+        volume: true,
+        pedalMode: true,
+        speedAlarms: true,
+        tiltBack: true,
+        calibration: true,
+      );
 
   @override
   List<Uint8List> initialRequests() => [
@@ -403,6 +414,94 @@ class BegodeAdapter extends BaseWheelAdapter {
 
   static int _getS32BE(Uint8List data, int offset) =>
       ByteData.sublistView(data).getInt32(offset, Endian.big);
+
+  // ---------------------------------------------------------------------------
+  // Comandos de control: bytes ASCII sueltos (el protocolo «de
+  // juguete» de Gotway). La referencia manda el byte del comando y,
+  // en la mayoría de comandos, un «b» de cierre 100 ms después.
+  // Como cualquier byte suelto puede leerse como comando, estas
+  // tramas SOLO pueden salir por la compuerta de seguridad.
+  // Apagar y bloquear NO están verificados en la referencia para
+  // Begode: no se ofrecen.
+
+  static List<int> _ascii(String s) => s.codeUnits;
+
+  /// Comando simple: el byte ahora y «b» a los 100 ms.
+  static List<CommandStep> _simple(String command) => [
+        CommandStep(_ascii(command)),
+        CommandStep(_ascii('b'),
+            delayBefore: const Duration(milliseconds: 100)),
+      ];
+
+  @override
+  List<CommandStep>? buildCommand(WheelCommandRequest request) {
+    switch (request) {
+      case LightRequest(:final state):
+        return _simple(switch (state) {
+          LightState.off => 'E',
+          LightState.on => 'Q',
+          LightState.strobe => 'T',
+        });
+      case BeepRequest():
+        // El beep de la referencia va directo, sin cierre.
+        return [CommandStep(_ascii('b'))];
+      case PedalModeRequest(:final mode):
+        if (mode < 0 || mode > 2) return null;
+        return _simple(const ['h', 'f', 's'][mode]);
+      case AlarmModeRequest(:final mode):
+        if (mode < 0 || mode > 3) return null;
+        return _simple(const ['o', 'u', 'i', 'I'][mode]);
+      case CalibrationRequest():
+        return [
+          CommandStep(_ascii('c')),
+          CommandStep(_ascii('y'),
+              delayBefore: const Duration(milliseconds: 300)),
+        ];
+      case TiltBackRequest(:final kmh):
+        const step = Duration(milliseconds: 100);
+        if (kmh <= 0) {
+          // Sin límite: «b», comilla de cierre y doble «b».
+          return [
+            CommandStep(_ascii('b')),
+            CommandStep(_ascii('"'), delayBefore: step),
+            CommandStep(_ascii('b'), delayBefore: step),
+            CommandStep(_ascii('b'), delayBefore: step),
+          ];
+        }
+        final v = kmh.clamp(0, 99);
+        final tens = String.fromCharCode(0x30 + v ~/ 10);
+        final units = String.fromCharCode(0x30 + v % 10);
+        return [
+          CommandStep(_ascii('b')),
+          CommandStep(_ascii('W'), delayBefore: step),
+          CommandStep(_ascii('Y'), delayBefore: step),
+          CommandStep(_ascii(tens), delayBefore: step),
+          CommandStep(_ascii(units), delayBefore: step),
+          CommandStep(_ascii('b'), delayBefore: step),
+          CommandStep(_ascii('b'), delayBefore: step),
+        ];
+      case LedModeRequest(:final mode):
+        const step = Duration(milliseconds: 100);
+        final digit = String.fromCharCode(0x30 + (mode % 10));
+        return [
+          CommandStep(_ascii('W'), delayBefore: step),
+          CommandStep(_ascii('M'), delayBefore: step),
+          CommandStep(_ascii(digit), delayBefore: step),
+          CommandStep(_ascii('b'), delayBefore: step),
+        ];
+      case VolumeRequest(:final level):
+        const step = Duration(milliseconds: 100);
+        final digit = String.fromCharCode(0x30 + (level % 10));
+        return [
+          CommandStep(_ascii('W'), delayBefore: step),
+          CommandStep(_ascii('B'), delayBefore: step),
+          CommandStep(_ascii(digit), delayBefore: step),
+          CommandStep(_ascii('b'), delayBefore: step),
+        ];
+      default:
+        return null;
+    }
+  }
 }
 
 /// Desempaquetador del flujo Begode: máquina de estados que busca

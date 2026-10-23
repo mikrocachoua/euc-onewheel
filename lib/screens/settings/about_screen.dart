@@ -34,9 +34,13 @@ class AboutScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Versión: $appVersion (build $appBuild)',
-                style: TextStyle(color: subText, fontSize: 15),
+              FutureBuilder<String>(
+                future: loadVersionLabel(),
+                initialData: '$appVersion (build $appBuild)',
+                builder: (context, snap) => Text(
+                  'Versión: ${snap.data}',
+                  style: const TextStyle(color: subText, fontSize: 15),
+                ),
               ),
             ],
           ),

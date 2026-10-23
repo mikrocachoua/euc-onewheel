@@ -2,10 +2,12 @@ import 'dart:typed_data';
 
 import '../../../models/wheel_capabilities.dart';
 import '../../../models/wheel_identity.dart';
+import '../wheel_command.dart';
 import 'wheel_adapter.dart';
 
-/// Adaptador InMotion, protocolo **V2** — **solo telemetría** en
-/// esta fase.
+/// Adaptador InMotion, protocolo **V2**: telemetría y comandos de
+/// control verificados (luz, velocidad máxima, bloqueo, calibración,
+/// apagado en dos etapas…).
 ///
 /// Transporte: Nordic UART (servicio `6e400001`, RX `…0002`,
 /// TX `…0003`); la detección llega por la huella GATT de ese
@@ -164,7 +166,17 @@ class InMotionAdapter extends BaseWheelAdapter {
   WheelBrand get brand => WheelBrand.inmotionV2;
 
   @override
-  WheelCapabilities get capabilities => WheelCapabilities.telemetryOnly;
+  WheelCapabilities get capabilities => const WheelCapabilities(
+        telemetry: true,
+        lights: true,
+        beep: true,
+        tiltBack: true,
+        speedAlarms: true,
+        calibration: true,
+        motorLock: true,
+        powerOff: true,
+        transportMode: true,
+      );
 
   @override
   List<Uint8List> initialRequests() => <Uint8List>[
@@ -615,6 +627,101 @@ class InMotionAdapter extends BaseWheelAdapter {
   static int _temp(List<int> b, int off) {
     if (b.length < off + 1) return 0;
     return (b[off] & 0xFF) - 176;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comandos de control (comando Control 0x60 salvo el apagado;
+  // datos verificados byte a byte contra la referencia abierta del
+  // protocolo V2). Ninguna trama sale de aquí directamente: pasan
+  // por la compuerta de seguridad vía el controlador.
+
+  static const int _cmdControl = 0x60;
+
+  bool get _isV12Family =>
+      _model == _InMotionModel.v12hs ||
+      _model == _InMotionModel.v12ht ||
+      _model == _InMotionModel.v12pro;
+
+  bool get _isV14Family =>
+      _model == _InMotionModel.v14g || _model == _InMotionModel.v14s;
+
+  /// Entero ×100 en little-endian (así viajan las velocidades).
+  static List<int> _le100(int v) {
+    final x = (v * 100) & 0xFFFF;
+    return [x & 0xFF, (x >> 8) & 0xFF];
+  }
+
+  Uint8List _control(List<int> data) => buildMessage(
+        flags: _flagDefault,
+        command: _cmdControl,
+        data: data,
+      );
+
+  @override
+  List<CommandStep>? buildCommand(WheelCommandRequest request) {
+    switch (request) {
+      case LightRequest(:final state):
+        if (state == LightState.strobe) return null;
+        final on = state == LightState.on ? 1 : 0;
+        if (_isV12Family) {
+          // Familia V12: [0x50, bajas, altas]; encender = bajas.
+          return [CommandStep(_control([0x50, on, 0]))];
+        }
+        // V11 con placa antigua (protoVer < 2) usa el código 0x40.
+        final code =
+            (_model == _InMotionModel.v11 && _protoVer < 2) ? 0x40 : 0x50;
+        return [CommandStep(_control([code, on]))];
+      case BeepRequest():
+        return [CommandStep(_control(const [0x51, 0x02, 0x64]))];
+      case TiltBackRequest(:final kmh):
+        final v = _le100(kmh.clamp(0, 200));
+        if (_isV14Family) {
+          // V14: la trama lleva también la velocidad de alarma (0 =
+          // sin cambio de alarma conocido; así lo manda la referencia
+          // cuando solo se ajusta la máxima).
+          return [CommandStep(_control([0x21, v[0], v[1], 0, 0]))];
+        }
+        return [CommandStep(_control([0x21, v[0], v[1]]))];
+      case SpeedAlarmsRequest(:final speedsKmh, :final tiltBackKmh):
+        if (_isV12Family && speedsKmh.length == 2) {
+          final a = _le100(speedsKmh[0]);
+          final b = _le100(speedsKmh[1]);
+          return [CommandStep(_control([0x3E, a[0], a[1], b[0], b[1]]))];
+        }
+        if (_isV14Family && speedsKmh.length == 1 && tiltBackKmh != null) {
+          final v = _le100(tiltBackKmh);
+          final a = _le100(speedsKmh[0]);
+          return [CommandStep(_control([0x21, v[0], v[1], a[0], a[1]]))];
+        }
+        return null;
+      case MotorLockRequest(:final lock):
+        return [CommandStep(_control([0x31, lock ? 1 : 0]))];
+      case TransportModeRequest(:final on):
+        return [CommandStep(_control([0x32, on ? 1 : 0]))];
+      case CalibrationRequest():
+        return [CommandStep(_control(const [0x42, 0x01, 0x00, 0x01]))];
+      case PowerOffRequest():
+        // Apagado en dos etapas (comando Diagnóstico): la referencia
+        // manda la segunda al recibir el diagnóstico de la rueda;
+        // aquí va tras una espera prudente sobre el mismo canal.
+        return [
+          CommandStep(buildMessage(
+            flags: _flagInitial,
+            command: _cmdDiagnostic,
+            data: const [0x81, 0x00],
+          )),
+          CommandStep(
+            buildMessage(
+              flags: _flagInitial,
+              command: _cmdDiagnostic,
+              data: const [0x82],
+            ),
+            delayBefore: const Duration(milliseconds: 600),
+          ),
+        ];
+      default:
+        return null;
+    }
   }
 }
 

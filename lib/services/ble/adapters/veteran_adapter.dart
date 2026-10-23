@@ -2,9 +2,11 @@ import 'dart:typed_data';
 
 import '../../../models/wheel_capabilities.dart';
 import '../../../models/wheel_identity.dart';
+import '../wheel_command.dart';
 import 'wheel_adapter.dart';
 
-/// Adaptador Veteran (LeaperKim) — **solo telemetría** en esta fase.
+/// Adaptador Veteran (LeaperKim): telemetría y los pocos comandos
+/// verificados de la marca (luz, pedales y beep).
 ///
 /// Incluye los modelos vendidos bajo la línea NOSFET, que comparten
 /// este mismo protocolo (se distinguen por la versión de modelo).
@@ -132,7 +134,12 @@ class VeteranAdapter extends BaseWheelAdapter {
   WheelBrand get brand => WheelBrand.veteran;
 
   @override
-  WheelCapabilities get capabilities => WheelCapabilities.telemetryOnly;
+  WheelCapabilities get capabilities => const WheelCapabilities(
+        telemetry: true,
+        lights: true,
+        beep: true,
+        pedalMode: true,
+      );
 
   @override
   List<Uint8List> initialRequests() => const <Uint8List>[];
@@ -357,6 +364,43 @@ class VeteranAdapter extends BaseWheelAdapter {
         ((b[off + 3] & 0xFF) << 16) |
         ((b[off] & 0xFF) << 8) |
         (b[off + 1] & 0xFF);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comandos de control: palabras ASCII completas, escritas tal cual
+  // (verificado en la referencia). Tilt-back, alarmas, bloqueo,
+  // calibración y apagado NO están implementados en la referencia
+  // abierta para Veteran: no se ofrecen hasta verificarlos.
+
+  @override
+  List<CommandStep>? buildCommand(WheelCommandRequest request) {
+    switch (request) {
+      case LightRequest(:final state):
+        return switch (state) {
+          LightState.on => [CommandStep('SetLightON'.codeUnits)],
+          LightState.off => [CommandStep('SetLightOFF'.codeUnits)],
+          LightState.strobe => null,
+        };
+      case PedalModeRequest(:final mode):
+        if (mode < 0 || mode > 2) return null;
+        return [
+          CommandStep(const ['SETh', 'SETm', 'SETs'][mode].codeUnits)
+        ];
+      case BeepRequest():
+        if (_modelVersion >= 3) {
+          // Modelos recientes (versión de modelo ≥ 3): trama binaria
+          // fija de 14 bytes de la referencia.
+          return [
+            CommandStep(const [
+              0x4C, 0x6B, 0x41, 0x70, 0x0E, 0x00, 0x80, //
+              0x80, 0x80, 0x01, 0xCA, 0x87, 0xE6, 0x6F,
+            ])
+          ];
+        }
+        return [CommandStep('b'.codeUnits)];
+      default:
+        return null;
+    }
   }
 }
 

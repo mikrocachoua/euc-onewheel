@@ -13,6 +13,7 @@ import 'adapters/wheel_adapter.dart';
 import 'ble_permissions.dart';
 import 'ble_service.dart';
 import 'safety_gate.dart';
+import 'wheel_command.dart';
 import 'wheel_detector.dart';
 
 /// Estado del enlace con la rueda, para la UI.
@@ -29,10 +30,10 @@ enum WheelLinkState {
 /// primera trama), la creación del adaptador de la marca y el flujo
 /// de telemetría hacia las pantallas.
 ///
-/// También es el dueño de la [SafetyGate]: en el futuro, TODOS los
-/// comandos de control saldrán por [safetyGate] usando el transporte
-/// de este controlador; en esta fase aún no se envía ningún comando
-/// de control (solo las peticiones de solo lectura del adaptador).
+/// También es el dueño de la [SafetyGate]: TODOS los comandos de
+/// control salen por [sendCommand], que construye las tramas con el
+/// adaptador de la marca y las pasa, una a una y en orden, por la
+/// compuerta antes de escribirlas en el enlace.
 class WheelConnectionController extends ChangeNotifier {
   WheelConnectionController({
     BleService? bleService,
@@ -103,6 +104,42 @@ class WheelConnectionController extends ChangeNotifier {
   /// Adaptador activo de la marca detectada (null si aún no se
   /// detecta o si la marca todavía no tiene adaptador).
   WheelAdapter? get adapter => _adapter;
+
+  /// Envía un comando de control a la rueda conectada.
+  ///
+  /// El adaptador de la marca construye los pasos (tramas + esperas)
+  /// de [request]; cada trama pasa por la compuerta de seguridad con
+  /// la telemetría más reciente antes de escribirse. Si la marca no
+  /// soporta el comando, o la compuerta bloquea cualquier paso, se
+  /// devuelve el veredicto con el motivo y no se envía nada más.
+  Future<GateVerdict> sendCommand(
+    WheelCommandRequest request, {
+    required bool userConfirmed,
+  }) async {
+    final adapter = _adapter;
+    if (adapter == null) {
+      return const GateVerdict.block('No hay ninguna rueda conectada.');
+    }
+    final steps = adapter.buildCommand(request);
+    if (steps == null) {
+      return const GateVerdict.block(
+          'Este control aún no está disponible para esta marca o modelo.');
+    }
+    for (final step in steps) {
+      if (step.delayBefore > Duration.zero) {
+        await Future<void>.delayed(step.delayBefore);
+      }
+      final verdict = await safetyGate.execute(
+        command: request.command,
+        frame: Uint8List.fromList(step.frame),
+        telemetry: adapter.telemetry,
+        telemetryAt: _lastLiveAt,
+        userConfirmed: userConfirmed,
+      );
+      if (!verdict.allowed) return verdict;
+    }
+    return const GateVerdict.allow();
+  }
 
   /// Inicia el escaneo de ruedas cercanas.
   ///

@@ -553,13 +553,15 @@ void main() {
       expect(adapter.detectedCells, 0);
     });
 
-    test('capacidades: solo telemetría; ningún comando habilitado', () {
+    test('capacidades: telemetría + luz, pedales y beep verificados', () {
       final caps = newAdapter().capabilities;
       expect(caps.telemetry, isTrue);
-      expect(caps.lights, isFalse);
+      expect(caps.lights, isTrue);
+      expect(caps.pedalMode, isTrue);
+      expect(caps.beep, isTrue);
+      // El resto no está verificado en la referencia para Veteran.
       expect(caps.tiltBack, isFalse);
       expect(caps.speedAlarms, isFalse);
-      expect(caps.pedalMode, isFalse);
       expect(caps.calibration, isFalse);
       expect(caps.motorLock, isFalse);
       expect(caps.powerOff, isFalse);

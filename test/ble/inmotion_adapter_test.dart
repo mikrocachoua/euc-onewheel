@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:euc_onewheel/models/wheel_capabilities.dart';
+
 import 'package:euc_onewheel/models/wheel_identity.dart';
 import 'package:euc_onewheel/services/ble/adapters/inmotion_adapter.dart';
 
@@ -32,15 +32,16 @@ const versionsV11Old =
 
 void main() {
   group('InMotionAdapter — contrato', () {
-    test('marca InMotion V2 y solo telemetría', () {
+    test('marca InMotion V2, telemetría y controles verificados', () {
       final a = InMotionAdapter();
       expect(a.brand, WheelBrand.inmotionV2);
-      expect(a.capabilities, WheelCapabilities.telemetryOnly);
       expect(a.capabilities.telemetry, isTrue);
-      expect(a.capabilities.lights, isFalse);
-      expect(a.capabilities.powerOff, isFalse);
-      expect(a.capabilities.motorLock, isFalse);
-      expect(a.capabilities.calibration, isFalse);
+      expect(a.capabilities.lights, isTrue);
+      expect(a.capabilities.powerOff, isTrue);
+      expect(a.capabilities.motorLock, isTrue);
+      expect(a.capabilities.calibration, isTrue);
+      expect(a.capabilities.tiltBack, isTrue);
+      expect(a.capabilities.transportMode, isTrue);
     });
 
     test('peticiones iniciales y de sondeo: tramas exactas', () {

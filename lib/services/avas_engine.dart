@@ -63,23 +63,23 @@ AvasOutput computeAvas({
   );
 }
 
-/// Interfaz del reproductor de audio del AVAS. La implementación por
-/// defecto de la base v2 es silenciosa (el motor de audio nativo se
-/// conecta en una fase posterior); la lógica de decisión vive en
-/// [computeAvas] y ya está cubierta por pruebas.
+/// Interfaz del reproductor de audio del AVAS. La lógica de
+/// decisión vive en [computeAvas]; el backend real que hace sonar el
+/// tono de motor es `AvasToneBackend` (avas_tone_backend.dart), que
+/// recibe también el preset activo para renderizar su timbre.
 abstract class AvasAudioBackend {
-  void apply(AvasOutput output);
+  void apply(AvasOutput output, {AvasPreset? preset});
   void stop();
 }
 
-/// Backend sin audio: registra la última salida pedida. Sirve como
-/// base segura mientras no hay reproductor nativo conectado.
+/// Backend sin audio: registra la última salida pedida. Útil en
+/// pruebas y como respaldo seguro.
 class SilentAvasBackend implements AvasAudioBackend {
   AvasOutput lastOutput = AvasOutput.silent;
   bool stopped = false;
 
   @override
-  void apply(AvasOutput output) {
+  void apply(AvasOutput output, {AvasPreset? preset}) {
     lastOutput = output;
     stopped = false;
   }

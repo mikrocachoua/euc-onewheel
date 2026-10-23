@@ -1,7 +1,7 @@
 name: euc_onewheel
 description: "EUC OneWheel — app para rodar en monociclo eléctrico: panel de conducción, grabación de rodadas con GPS, mapa, historial y telemetría Bluetooth multimarca."
 publish_to: 'none'
-version: 2.0.0+7
+version: 2.0.0+8
 
 environment:
   sdk: ^3.5.0
@@ -18,6 +18,8 @@ dependencies:
   share_plus: ^12.0.1
   flutter_blue_plus: ^2.3.14
   permission_handler: ^13.0.2
+  package_info_plus: ^9.0.1
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:

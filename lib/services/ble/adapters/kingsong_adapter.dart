@@ -2,9 +2,10 @@ import 'dart:typed_data';
 
 import '../../../models/wheel_capabilities.dart';
 import '../../../models/wheel_identity.dart';
+import '../wheel_command.dart';
 import 'wheel_adapter.dart';
 
-/// Adaptador KingSong — **solo telemetría** en esta fase.
+/// Adaptador KingSong: telemetría y comandos de control.
 ///
 /// Protocolo: tramas fijas de 20 bytes con cabecera `AA 55` y tipo
 /// en el byte 16. Los campos multibyte se leen con la regla «R» de
@@ -19,9 +20,13 @@ import 'wheel_adapter.dart';
 /// - `0xBB`: nombre/modelo (de ahí sale el modelo y el firmware).
 /// - `0xB3`: número de serie.
 ///
-/// Los comandos de control de KingSong aún NO se construyen aquí:
-/// cuando se implementen, saldrán únicamente por la compuerta de
-/// seguridad (safety_gate.dart).
+/// Comandos implementados (verificados contra la misma referencia):
+/// luz `0x73`, beep `0x88`, pedales `0x87`, alarmas + velocidad
+/// máxima `0x85` (una sola trama: se piden juntas), calibración
+/// `0x89`, apagado `0x40` y LED `0x6C`. El bloqueo de motor NO está
+/// verificado en la referencia para KingSong: no se ofrece. Ningún
+/// comando escribe desde aquí: las tramas salen solo por la
+/// compuerta de seguridad (safety_gate.dart).
 class KingSongAdapter extends BaseWheelAdapter {
   KingSongAdapter();
 
@@ -57,7 +62,17 @@ class KingSongAdapter extends BaseWheelAdapter {
   WheelBrand get brand => WheelBrand.kingsong;
 
   @override
-  WheelCapabilities get capabilities => WheelCapabilities.telemetryOnly;
+  WheelCapabilities get capabilities => const WheelCapabilities(
+        telemetry: true,
+        lights: true,
+        beep: true,
+        led: true,
+        pedalMode: true,
+        speedAlarms: true,
+        tiltBack: true,
+        calibration: true,
+        powerOff: true,
+      );
 
   @override
   List<Uint8List> initialRequests() => [
@@ -215,5 +230,69 @@ class KingSongAdapter extends BaseWheelAdapter {
         ((arr[offset + 3] & 0xFF) << 8) |
         (arr[offset + 2] & 0xFF);
     return v >= 0x80000000 ? v - 0x100000000 : v;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comandos de control: plantilla de 20 bytes
+  // [AA 55, 14 bytes de datos, tipo, 0x14, 5A 5A].
+
+  /// Plantilla vacía de petición (la de la referencia).
+  static Uint8List _emptyRequest() => Uint8List.fromList(<int>[
+        0xAA, 0x55, //
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+        0x00, 0x14, 0x5A, 0x5A,
+      ]);
+
+  @override
+  List<CommandStep>? buildCommand(WheelCommandRequest request) {
+    switch (request) {
+      case LightRequest(:final state):
+        final frame = _emptyRequest();
+        frame[2] = switch (state) {
+          LightState.off => 0x12,
+          LightState.on => 0x13,
+          LightState.strobe => 0x14,
+        };
+        frame[3] = 0x01;
+        frame[16] = 0x73;
+        return [CommandStep(frame)];
+      case BeepRequest():
+        final frame = _emptyRequest()..[16] = 0x88;
+        return [CommandStep(frame)];
+      case PedalModeRequest(:final mode):
+        if (mode < 0 || mode > 2) return null;
+        final frame = _emptyRequest();
+        frame[2] = mode;
+        frame[3] = 0xE0;
+        frame[16] = 0x87;
+        // La referencia usa 0x15 en el byte 17 solo para pedales
+        // (la plantilla trae 0x14).
+        frame[17] = 0x15;
+        return [CommandStep(frame)];
+      case SpeedAlarmsRequest(:final speedsKmh, :final tiltBackKmh):
+        // La trama 0x85 lleva alarmas y velocidad máxima juntas: sin
+        // la máxima no se construye, para no borrar el límite vigente.
+        if (tiltBackKmh == null || speedsKmh.length != 3) return null;
+        final frame = _emptyRequest();
+        frame[2] = speedsKmh[0].clamp(0, 255);
+        frame[4] = speedsKmh[1].clamp(0, 255);
+        frame[6] = speedsKmh[2].clamp(0, 255);
+        frame[8] = tiltBackKmh.clamp(0, 255);
+        frame[16] = 0x85;
+        return [CommandStep(frame)];
+      case CalibrationRequest():
+        final frame = _emptyRequest()..[16] = 0x89;
+        return [CommandStep(frame)];
+      case PowerOffRequest():
+        final frame = _emptyRequest()..[16] = 0x40;
+        return [CommandStep(frame)];
+      case LedModeRequest(:final mode):
+        final frame = _emptyRequest();
+        frame[2] = mode & 0xFF;
+        frame[16] = 0x6C;
+        return [CommandStep(frame)];
+      default:
+        return null;
+    }
   }
 }

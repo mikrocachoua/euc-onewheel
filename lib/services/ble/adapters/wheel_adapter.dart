@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../../../models/wheel_capabilities.dart';
 import '../../../models/wheel_identity.dart';
 import '../../../models/wheel_telemetry.dart';
+import '../wheel_command.dart';
 
 /// Interfaz común de los adaptadores por marca.
 ///
@@ -54,6 +55,13 @@ abstract class WheelAdapter {
   /// marca no necesita sondeo.
   Duration? get pollInterval;
 
+  /// Construye los pasos (tramas + esperas) para ejecutar [request]
+  /// en esta marca, o `null` si el comando no está implementado o no
+  /// está verificado para ella. NUNCA escribe por sí mismo: el
+  /// controlador pasa cada trama por la compuerta de seguridad antes
+  /// de enviarla (la compuerta es el único punto de salida).
+  List<CommandStep>? buildCommand(WheelCommandRequest request);
+
   /// Libera los streams del adaptador al desconectar.
   Future<void> dispose();
 }
@@ -93,6 +101,11 @@ abstract class BaseWheelAdapter implements WheelAdapter {
 
   @override
   Duration? get pollInterval => null;
+
+  /// Por omisión, ningún comando de control: cada adaptador
+  /// implementa solo los que tiene verificados para su marca.
+  @override
+  List<CommandStep>? buildCommand(WheelCommandRequest request) => null;
 
   /// Actualiza la identidad y la emite solo si cambió.
   void updateIdentity(WheelIdentity next) {

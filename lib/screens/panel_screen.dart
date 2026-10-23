@@ -9,6 +9,7 @@ import '../models/wheel_telemetry.dart';
 import '../services/alarm_engine.dart';
 import '../services/app_log.dart';
 import '../services/avas_engine.dart';
+import '../services/avas_tone_backend.dart';
 import '../services/ble/wheel_connection_controller.dart';
 import '../services/demo_data.dart';
 import '../state/app_settings.dart';
@@ -58,7 +59,7 @@ class _PanelScreenState extends State<PanelScreen> {
   final DemoTelemetry _demo = DemoTelemetry();
   StreamSubscription<WheelTelemetry>? _demoSub;
   WheelTelemetry? _demoTelemetry;
-  final AvasAudioBackend _avasBackend = SilentAvasBackend();
+  final AvasAudioBackend _avasBackend = AvasToneBackend();
   Set<AlarmKind> _soundedAlarms = {};
 
   @override
@@ -183,7 +184,7 @@ class _PanelScreenState extends State<PanelScreen> {
       preset: _settings.avasPreset,
       volume: _settings.avasVolume,
     );
-    _avasBackend.apply(output);
+    _avasBackend.apply(output, preset: _settings.avasPreset);
   }
 
   Widget _header(BuildContext context, bool demo) {

@@ -3,10 +3,12 @@ import 'dart:typed_data';
 import '../../../models/wheel_capabilities.dart';
 import '../../../models/wheel_identity.dart';
 import '../../../models/wheel_telemetry.dart';
+import '../wheel_command.dart';
 import 'wheel_adapter.dart';
 
-/// Adaptador Ninebot, variante **Z** — **solo telemetría** en
-/// esta fase.
+/// Adaptador Ninebot, variante **Z**: telemetría y comandos de
+/// control verificados (bloqueo, límite de velocidad, alarmas,
+/// calibración, LED y volumen).
 ///
 /// Transporte: Nordic UART (servicio `6e400001`, RX `…0002`,
 /// TX `…0003`); la detección llega por la huella GATT de ese
@@ -162,7 +164,15 @@ class NinebotZAdapter extends BaseWheelAdapter {
   WheelBrand get brand => WheelBrand.ninebotZ;
 
   @override
-  WheelCapabilities get capabilities => WheelCapabilities.telemetryOnly;
+  WheelCapabilities get capabilities => const WheelCapabilities(
+        telemetry: true,
+        tiltBack: true,
+        speedAlarms: true,
+        calibration: true,
+        motorLock: true,
+        led: true,
+        volume: true,
+      );
 
   /// ¿La rueda ya entregó su clave de cifrado?
   bool get keyNegotiated => _keyNegotiated;
@@ -716,6 +726,71 @@ class NinebotZAdapter extends BaseWheelAdapter {
 
   static int _i32(Uint8List d, int off) =>
       _u16(d, off) | (_u16(d, off + 2) << 16);
+
+  // ---------------------------------------------------------------------------
+  // Comandos de control: escrituras (comando 0x03) al controlador
+  // con la misma construcción de trama cifrada que las lecturas
+  // (la gamma vigente se aplica en [_buildMessage]). Datos
+  // verificados contra la referencia abierta del protocolo.
+  // La luz vía DriveFlags NO está verificada en la referencia
+  // («not working yet»): no se ofrece.
+
+  static const int _cmdWrite = 0x03;
+  static const int _paramLockMode = 0x70;
+  static const int _paramLimitedMode = 0x72;
+  static const int _paramLimitSpeed = 0x74;
+  static const int _paramCalibration = 0x75;
+  static const int _paramAlarm1Speed = 0x7D;
+  static const int _paramLedMode = 0xC6;
+  static const int _paramSpeakerVolume = 0xF5;
+
+  Uint8List _write(int parameter, List<int> data) => _buildMessage(
+        destination: _addrController,
+        command: _cmdWrite,
+        parameter: parameter,
+        data: data,
+      );
+
+  static List<int> _u16le(int v) =>
+      <int>[v & 0xFF, (v >> 8) & 0xFF];
+
+  @override
+  List<CommandStep>? buildCommand(WheelCommandRequest request) {
+    switch (request) {
+      case MotorLockRequest(:final lock):
+        return [CommandStep(_write(_paramLockMode, [lock ? 1 : 0, 0]))];
+      case TiltBackRequest(:final kmh):
+        // Límite de velocidad del modo limitado: primero se activa
+        // el modo (o se apaga si el límite es 0) y luego la velocidad.
+        final v = kmh.clamp(0, 200);
+        return [
+          CommandStep(_write(_paramLimitedMode, [v > 0 ? 1 : 0])),
+          CommandStep(_write(_paramLimitSpeed, _u16le(v * 100))),
+        ];
+      case SpeedAlarmsRequest(:final speedsKmh):
+        if (speedsKmh.length != 3) return null;
+        return [
+          for (var i = 0; i < 3; i++)
+            CommandStep(_write(
+              // Parámetros consecutivos: 0x7D, 0x7E y 0x7F.
+              _paramAlarm1Speed + i,
+              _u16le(speedsKmh[i].clamp(0, 200) * 100),
+            )),
+        ];
+      case CalibrationRequest():
+        return [CommandStep(_write(_paramCalibration, const [1, 0]))];
+      case LedModeRequest(:final mode):
+        return [CommandStep(_write(_paramLedMode, _u16le(mode)))];
+      case VolumeRequest(:final level):
+        // La referencia desplaza el nivel 3 bits antes de escribirlo.
+        return [
+          CommandStep(
+              _write(_paramSpeakerVolume, _u16le((level.clamp(0, 9)) << 3)))
+        ];
+      default:
+        return null;
+    }
+  }
 }
 
 /// Datos de un BMS de Ninebot Z tal como los reporta su

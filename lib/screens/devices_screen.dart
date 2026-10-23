@@ -7,6 +7,7 @@ import '../services/demo_data.dart';
 import '../state/app_settings.dart';
 import '../theme.dart';
 import '../widgets/ui_kit.dart';
+import '../widgets/wheel_controls_card.dart';
 import 'panel_screen.dart';
 import 'settings/data_screen.dart';
 
@@ -43,9 +44,11 @@ class DevicesScreen extends StatelessWidget {
             children: [
               _header(context, demo),
               const SizedBox(height: 10),
-              if (controller.state == WheelLinkState.connected)
-                _connectedCard(context)
-              else if (demo)
+              if (controller.state == WheelLinkState.connected) ...[
+                _connectedCard(context),
+                const SizedBox(height: 12),
+                WheelControlsCard(controller: controller),
+              ] else if (demo)
                 _demoCard(context)
               else
                 _scanCard(context),

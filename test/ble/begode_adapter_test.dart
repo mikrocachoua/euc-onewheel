@@ -398,13 +398,14 @@ void main() {
       expect(adapter.identity.model, isNull);
       final caps = adapter.capabilities;
       expect(caps.telemetry, isTrue);
-      // Ningún comando está habilitado en esta fase; apagar y
-      // bloquear ni siquiera están verificados en el protocolo.
-      expect(caps.lights, isFalse);
-      expect(caps.tiltBack, isFalse);
-      expect(caps.speedAlarms, isFalse);
-      expect(caps.pedalMode, isFalse);
-      expect(caps.calibration, isFalse);
+      // Comandos verificados en el protocolo ASCII de la marca.
+      expect(caps.lights, isTrue);
+      expect(caps.tiltBack, isTrue);
+      expect(caps.speedAlarms, isTrue);
+      expect(caps.pedalMode, isTrue);
+      expect(caps.calibration, isTrue);
+      // Apagar y bloquear NO están verificados en el protocolo:
+      // siguen fuera, a propósito.
       expect(caps.motorLock, isFalse);
       expect(caps.powerOff, isFalse);
     });

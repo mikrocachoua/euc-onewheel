@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:euc_onewheel/models/wheel_capabilities.dart';
+
 import 'package:euc_onewheel/models/wheel_identity.dart';
 import 'package:euc_onewheel/services/ble/adapters/ninebot_z_adapter.dart';
 
@@ -103,12 +103,14 @@ void main() {
     test('marca Ninebot Z y solo telemetría', () {
       final a = NinebotZAdapter();
       expect(a.brand, WheelBrand.ninebotZ);
-      expect(a.capabilities, WheelCapabilities.telemetryOnly);
       expect(a.capabilities.telemetry, isTrue);
+      expect(a.capabilities.motorLock, isTrue);
+      expect(a.capabilities.calibration, isTrue);
+      expect(a.capabilities.tiltBack, isTrue);
+      // La luz vía DriveFlags no está verificada y no hay apagado
+      // remoto en la referencia: fuera, a propósito.
       expect(a.capabilities.lights, isFalse);
       expect(a.capabilities.powerOff, isFalse);
-      expect(a.capabilities.motorLock, isFalse);
-      expect(a.capabilities.calibration, isFalse);
     });
 
     test('peticiones iniciales exactas con la gamma en ceros', () {

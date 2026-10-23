@@ -15,6 +15,10 @@ class WheelCapabilities {
     this.calibration = false,
     this.motorLock = false,
     this.powerOff = false,
+    this.beep = false,
+    this.led = false,
+    this.volume = false,
+    this.transportMode = false,
   });
 
   /// Sin ninguna capacidad (rueda no identificada o sin adaptador).
@@ -47,4 +51,16 @@ class WheelCapabilities {
 
   /// Apagar la rueda remotamente.
   final bool powerOff;
+
+  /// Beep/claxon de prueba.
+  final bool beep;
+
+  /// Cambiar el modo del LED decorativo.
+  final bool led;
+
+  /// Cambiar el volumen del beeper/altavoz.
+  final bool volume;
+
+  /// Activar/desactivar el modo transporte.
+  final bool transportMode;
 }

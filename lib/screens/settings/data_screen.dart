@@ -17,12 +17,16 @@ class AppDataScreen extends StatefulWidget {
 
 class _AppDataScreenState extends State<AppDataScreen> {
   int? _rideCount;
+  String _versionLabel = '$appVersion (build $appBuild)';
 
   @override
   void initState() {
     super.initState();
     RideStore().loadRides().then((rides) {
       if (mounted) setState(() => _rideCount = rides.length);
+    });
+    loadVersionLabel().then((label) {
+      if (mounted) setState(() => _versionLabel = label);
     });
   }
 
@@ -39,7 +43,7 @@ class _AppDataScreenState extends State<AppDataScreen> {
               SurfaceCard(
                 child: Column(
                   children: [
-                    _row('Versión de la app', '$appVersion (build $appBuild)'),
+                    _row('Versión de la app', _versionLabel),
                     const Divider(),
                     _row(
                       'Rodadas guardadas en este teléfono',
