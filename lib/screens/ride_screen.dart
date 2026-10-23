@@ -14,8 +14,9 @@ import '../utils/format.dart';
 enum _RideState { idle, recording, paused }
 
 /// Pantalla de grabación de rodadas con GPS REAL del teléfono.
-/// Dibuja la ruta en rojo sobre el mapa, acumula distancia/tiempos y,
-/// al terminar, guarda la rodada y muestra el resumen completo.
+/// Dibuja la ruta en el degradado azul → cian de la identidad
+/// sobre el mapa, acumula distancia/tiempos y, al terminar, guarda
+/// la rodada y muestra el resumen completo.
 class RideScreen extends StatefulWidget {
   const RideScreen({super.key});
 
@@ -251,15 +252,15 @@ class _RideScreenState extends State<RideScreen> {
             ),
             const SizedBox(height: 4),
             Text(formatDateTime(ride.startedAt),
-                style: const TextStyle(color: Colors.white60)),
+                style: const TextStyle(color: subText)),
             const SizedBox(height: 14),
             _summaryRow('Duración', formatDuration(ride.duration)),
-            _summaryRow(
-                'Velocidad media', '${ride.avgSpeedKmh.toStringAsFixed(1)} km/h'),
-            _summaryRow(
-                'Velocidad máxima', '${ride.maxSpeedKmh.toStringAsFixed(1)} km/h'),
-            _summaryRow(
-                'Desnivel positivo', '+${ride.elevationGainMeters.toStringAsFixed(0)} m'),
+            _summaryRow('Velocidad media',
+                '${ride.avgSpeedKmh.toStringAsFixed(1)} km/h'),
+            _summaryRow('Velocidad máxima',
+                '${ride.maxSpeedKmh.toStringAsFixed(1)} km/h'),
+            _summaryRow('Desnivel positivo',
+                '+${ride.elevationGainMeters.toStringAsFixed(0)} m'),
           ],
         ),
         actions: [
@@ -287,7 +288,7 @@ class _RideScreenState extends State<RideScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white60)),
+          Text(label, style: const TextStyle(color: subText)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
         ],
       ),
@@ -329,7 +330,7 @@ class _RideScreenState extends State<RideScreen> {
                       polylines: [
                         Polyline(
                           points: latLngs,
-                          color: brandRed,
+                          gradientColors: const [funcBlue, evCyan, cyanLight],
                           strokeWidth: 4.5,
                         ),
                       ],
@@ -343,7 +344,7 @@ class _RideScreenState extends State<RideScreen> {
                           height: 22,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: brandRed,
+                              color: funcBlue,
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 3),
                             ),
@@ -380,12 +381,16 @@ class _RideScreenState extends State<RideScreen> {
 
   Widget _statsBar() {
     return Container(
-      color: const Color(0xFF141418),
+      decoration: const BoxDecoration(
+        color: cockpitBgTop,
+        border: Border(top: BorderSide(color: surfaceBorder)),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _stat('DISTANCIA', '${(_distanceMeters / 1000).toStringAsFixed(2)} km'),
+          _stat(
+              'DISTANCIA', '${(_distanceMeters / 1000).toStringAsFixed(2)} km'),
           _stat('TIEMPO', formatDuration(_stopwatch.elapsed)),
           _stat('AHORA', '${_currentSpeedKmh.toStringAsFixed(0)} km/h'),
           _stat('MEDIA', '${_avgSpeedKmh.toStringAsFixed(1)} km/h'),
@@ -400,12 +405,13 @@ class _RideScreenState extends State<RideScreen> {
       children: [
         Text(
           value,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+              fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Colors.white54),
+          style: const TextStyle(fontSize: 10, color: subText),
         ),
       ],
     );
@@ -413,7 +419,7 @@ class _RideScreenState extends State<RideScreen> {
 
   Widget _controls() {
     return Container(
-      color: const Color(0xFF141418),
+      color: cockpitBgTop,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Row(
         children: [

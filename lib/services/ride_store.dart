@@ -22,9 +22,8 @@ class RideStore {
       final raw = await f.readAsString();
       if (raw.trim().isEmpty) return [];
       final list = jsonDecode(raw) as List<dynamic>;
-      final rides = list
-          .map((e) => Ride.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final rides =
+          list.map((e) => Ride.fromJson(e as Map<String, dynamic>)).toList();
       rides.sort((a, b) => b.startedAt.compareTo(a.startedAt));
       return rides;
     } catch (_) {

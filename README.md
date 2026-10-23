@@ -1,179 +1,107 @@
-# EUC OneWheel — app nativa (v1)
+# EUC OneWheel — app nativa (base v2, build #6)
 
-EUC OneWheel es un producto original: la app completa y mejorada para
-salir a rodar en monociclo eléctrico, con la identidad visual de Mikro:
-logo rojo oficial e interfaz oscura con acentos rojos (#E0231C).
+EUC OneWheel es un producto original: la app completa para salir a
+rodar en monociclo eléctrico, con identidad visual propia — cluster
+digital de auto eléctrico sobre grafito azulado profundo, paneles
+de vidrio en capas con iridiscencia sutil, azul funcional
+(#2E7CD6) como acento de trabajo, cifras en degradado blanco →
+plata y el rojo de la marca (#E0231C) solo como luz dentro del
+tubo del velocímetro y en alertas críticas — y compatibilidad con
+las marcas principales de ruedas: **InMotion, KingSong,
+Begode/Gotway, Veteran/LeaperKim y Ninebot**. Ninguna función está
+amarrada a una marca ni a un modelo concretos; la app no se enfoca
+en ningún monociclo en especial.
 
-## Qué incluye esta v1 (lo que ya funciona de verdad)
+## La base v2 de un vistazo
 
-- **GPS 100 % real** (pestaña **Rodar**): pide permiso de ubicación, te
-  centra en el mapa (OpenStreetMap), y al pulsar *Iniciar rodada* graba tu
-  ruta en vivo: dibuja el recorrido en rojo sobre el mapa y muestra
-  distancia, tiempo, velocidad actual, media y máxima mientras ruedas.
-  Botones de **Pausar / Reanudar / Terminar**.
-- **Resumen completo de la rodada** al terminar: distancia total, duración,
-  velocidad media y máxima y desnivel estimado (con las altitudes del
-  GPS), con botón **Compartir** para mandar el resumen en texto.
-- **Historial** (pestaña **Historial**): las rodadas se guardan en el
-  teléfono (archivo JSON en los datos de la app). Al tocar una rodada se
-  ve su mapa con la ruta y todas sus cifras; también se puede **borrar**.
-- **Panel** (pestaña **Panel**): la pantalla principal con el panel de
-  telemetría más completo — velocímetro grande en rojo y tarjetas de
-  batería, voltaje, potencia y temperatura.
-- **Rueda** (pestaña **Rueda**): la sección de **marcas compatibles**
-  (InMotion, KingSong, Begode/Gotway, Veteran/LeaperKim y Ninebot), la
-  sección **Controles de la rueda** con su diseño definitivo (luces,
-  tilt-back, alarmas, modo de pedales, calibración y bloqueo — visibles
-  pero deshabilitados hasta conectar una rueda) y el «Acerca de» con tu
-  logo. La app es abierta: no está amarrada a una marca ni a un modelo.
+Navegación flotante de **cinco secciones**, siempre a pantalla
+completa:
 
-## Qué queda para la fase 2 (honestidad ante todo)
+- **Dispositivos** — escaneo y conexión Bluetooth reales con
+  detección automática de marca y modelo (huella GATT + primera
+  trama), lista «ENCONTRADO» de dispositivos cercanos y distintivo
+  «Demo» cuando se explora sin rueda real.
+- **Viajes** — historial de rodadas con tarjetas completas (fecha,
+  distancia, duración, velocidad media y máxima, desnivel), detalle
+  con mapa de la ruta, resumen completo, **gráfico de velocidad**,
+  **exportación a CSV** y compartir por la hoja del sistema. La
+  grabación GPS real de la v1 sigue intacta.
+- **Mapa** — mapa a pantalla completa (OpenStreetMap) con tu
+  ubicación en vivo, zoom +/−, botón de centrar, **filtros** (solo
+  amigos / solo en línea / solo con el dispositivo conectado) y
+  modo AR en preparación.
+- **Perfil** — tarjeta del rodador con avatar, contadores sociales,
+  valoración y la fila de su dispositivo con batería.
+- **Configuración** — el menú completo:
+  - **Aplicación**: panel personalizado (indicadores y tamaño,
+    persistentes), **alarmas configurables** (velocidad, amperaje,
+    potencia, temperatura y PWM), grabador de video (en desarrollo),
+    volumen automático según la velocidad, **sonido de motor
+    (AVAS)** con presets y volumen propio, grabación automática de
+    GPS, apariencia (sistema imperial, °C/°F, bar/psi, tema oscuro
+    deportivo / claro / negro puro / según el sistema), introducción, bloqueo de
+    orientación, permanecer encendido, reset automático de ruta y
+    datos de la app.
+  - **Privacidad**: quién ve tu localización y tu perfil, precisión
+    mejorada, ubicación en segundo plano y clasificaciones.
+  - **Tienda / Extras**: el catálogo completo de funciones de la
+    app, sin muro de pago; lo no implementado se marca «En
+    desarrollo», sin prometer fechas.
+  - **Integración**: comunidad, atajos de voz, relojes y radar
+    Garmin, espejo Third Eye y ActiveLook (próximamente).
+  - **Soporte**: canal de ayuda y **compartir registros** de la app.
+  - **Acerca de**: versión, información, librerías y créditos.
 
-En la v1 el Panel muestra la telemetría en estado «—», la tarjeta dice
-«Sin rueda conectada» y los controles de la rueda se ven completos pero
-deshabilitados: es el diseño definitivo esperando la conexión. La fase
-2 es el Bluetooth real, en tres capas:
+## Panel de conducción
 
-- **a) Detección automática.** Escaneo Bluetooth LE: la app identifica
-  la marca y el modelo de la rueda por el nombre y los servicios que
-  anuncia al aire, sin que tengas que configurar nada a mano.
-- **b) Lectura de telemetría.** Cada marca habla su propio protocolo;
-  la fase 2 lo implementa marca por marca para llenar el Panel con
-  datos en vivo: velocidad, batería, voltaje, corriente, potencia,
-  temperaturas e inclinación.
-- **c) Comandos de control.** La app no solo leerá: también podrá
-  **operar** la rueda desde el teléfono, únicamente con los comandos
-  que el protocolo de cada marca y modelo exponga — encender/apagar
-  las luces, ajustar la velocidad de tilt-back, las alarmas de
-  velocidad, el modo y la sensibilidad de pedales (ride mode), la
-  calibración y el bloqueo del motor. Lo que un modelo no exponga
-  quedará deshabilitado en su caso. Todos los comandos de control
-  quedan sujetos a la Regla de seguridad (sección siguiente).
-- Publicar fotos/videos de la app a redes sociales (el resumen de texto
-  ya se puede compartir con el botón Compartir del sistema).
+Medidor circular grande de velocidad: tubo de vidrio azulado con
+la luz roja de la marca brillando dentro (borde oscuro → rojo vivo
+→ núcleo casi blanco) y la cifra en degradado blanco → plata.
+Indicadores personalizables (batería, voltaje, corriente, potencia,
+temperatura, PWM, distancia del viaje y odómetro), avisos de
+alarmas en pantalla con sonido, y los controles de la rueda
+(luces, tilt-back, alarmas, modo de pedales, calibración, bloqueo
+y apagado) visibles pero **deshabilitados** hasta que el adaptador
+de cada marca implemente sus comandos. La ruta de los viajes y las
+gráficas van en el degradado azul → cian de la identidad.
+
+El **sonido de motor (AVAS)** tiene su lógica completa: apagado por
+defecto, solo suena con rueda conectada y velocidad > 0, el tono
+sigue a la velocidad según el preset (deportivo, clásico, eléctrico,
+personalizado) y, si salta una alarma real, su volumen se agacha
+casi a silencio para nunca taparla. El reproductor de audio nativo
+se conecta en una fase posterior.
+
+## Bluetooth multimarca (base existente, intacta)
+
+- Detección por **huella GATT + olfateo de la primera trama** para
+  todas las marcas principales.
+- Adaptadores de telemetría implementados y probados con vectores
+  de tramas reales para las **cinco marcas**: KingSong,
+  Begode/Gotway, Veteran/LeaperKim (incluida la línea NOSFET),
+  InMotion V2 (V11/V12/V13 y familia nueva) y Ninebot Z. Todos en
+  modo **solo telemetría**: ningún adaptador envía comandos
+  todavía; los controles saldrán únicamente por la compuerta de
+  seguridad en su fase.
+- Permisos de runtime de Android gestionados (Bluetooth en
+  Android 12+, ubicación legada en versiones anteriores).
 
 ## Regla de seguridad (obligatoria, sin excepción)
 
-Principio de diseño de la fase 2: **ninguna función de la app puede
-poner en riesgo al equipo en uso. La rueda NUNCA debe poder apagarse
-desde la app mientras está en movimiento.**
+**Ninguna función de la app puede poner en riesgo la rodada.** La
+rueda NUNCA debe poder apagarse desde la app mientras está en
+movimiento. Todos los comandos de control salen únicamente por la
+**compuerta de seguridad** (`lib/services/ble/safety_gate.dart`):
 
-Clasificación de comandos de la fase 2:
+- Comandos críticos (apagar, bloquear el motor, calibrar, tilt-back,
+  alarmas de velocidad, modo de pedales, ángulo y modo transporte)
+  solo con **velocidad = 0**, telemetría fresca (< 2 s) y
+  **confirmación explícita** del usuario.
+- Perder el enlace Bluetooth **nunca** dispara ninguna acción.
+- Cada comando autorizado queda en el registro de auditoría.
 
-- **Permitidos en movimiento:** solo la lectura de telemetría y las
-  funciones inocuas (por ejemplo, encender/apagar las luces).
-- **Solo con la rueda detenida (velocidad = 0) y con confirmación
-  explícita en pantalla:** apagar la rueda, bloquear el motor, la
-  calibración y cualquier ajuste que afecte el comportamiento en
-  marcha (velocidad de tilt-back, alarmas de velocidad y modo de
-  pedales).
-- **Candado por software en la app:** si la rueda reporta velocidad
-  mayor a 0, la app bloquea esos comandos por su cuenta, además del
-  candado que ya traiga el firmware de la rueda.
-- **Sin acciones por desconexión:** la pérdida de la conexión
-  Bluetooth nunca debe disparar ninguna acción en la rueda.
+## Publicación
 
-En la v1 esta regla ya se refleja en la interfaz: los controles
-peligrosos de la sección «Controles de la rueda» (apagar, bloqueo del
-motor, calibración, tilt-back, alarmas y modo de pedales) llevan la
-leyenda «Solo con la rueda detenida».
-
-## Estructura del proyecto
-
-```
-lib/
-  main.dart                  → arranque y navegación inferior (4 pestañas)
-  theme.dart                 → tema Material 3 oscuro, rojo #E0231C
-  models/
-    ride.dart                → modelo de rodada y punto GPS (JSON)
-  services/
-    ride_store.dart          → guardar/leer/borrar rodadas en el teléfono
-  screens/
-    panel_screen.dart        → Panel (telemetría, preparada para fase 2)
-    ride_screen.dart         → Rodar (GPS real y grabación)
-    history_screen.dart      → Historial de rodadas
-    ride_detail_screen.dart  → Detalle de una rodada (mapa + cifras)
-    wheel_screen.dart        → Rueda (marcas compatibles) y Acerca de
-  utils/
-    format.dart              → formatos de fecha y duración
-assets/
-  logo.jpg                   → logo oficial (en Panel, Rueda y Acerca de)
-  icon.png                   → logo cuadrado para el ícono de la app
-codemagic.yaml               → compilación en la nube (iOS → TestFlight)
-```
-
-Tecnologías: Flutter (Material 3), `geolocator` (GPS), `flutter_map` +
-`latlong2` (mapas OpenStreetMap), `path_provider` (guardado local),
-`share_plus` (compartir), `intl` (fechas).
-
-## Cómo se compila en la nube (Codemagic)
-
-No necesitas una Mac: Codemagic compila la app de iOS en sus servidores.
-Todo el proceso está descrito en el archivo **`codemagic.yaml`** de esta
-misma carpeta: es el guion que Codemagic sigue paso a paso (descargar
-dependencias, firmar la app automáticamente con la clave de API de App
-Store Connect, compilar el `.ipa` en Release y subirlo a TestFlight).
-El YAML no guarda ninguna contraseña: las credenciales viven cifradas
-en Codemagic.
-
-El flujo se llama **«iOS a TestFlight»** y, una vez configurado (pasos
-del día de la instalación, abajo), se dispara a mano desde el panel de
-Codemagic con «Start new build». Al terminar, la app aparece sola en
-TestFlight.
-
-Datos reales de esta app (los que pide Apple, sin inventar):
-
-- **Bundle id de iOS:** `com.euconewheel.eucOnewheel` — ojo, lleva
-  mayúscula en «Onewheel»; debe escribirse idéntico en todas partes.
-- **Nombre visible:** EUC OneWheel.
-- En Codemagic, la integración con App Store Connect debe llamarse
-  **`EUC OneWheel ASC`** (es el nombre escrito en el `codemagic.yaml`;
-  si se crea con otro nombre, hay que cambiarlo también ahí) y el
-  grupo de variables **`credenciales_app_store`** debe traer la clave
-  de API: `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_IDENTIFIER`
-  y `APP_STORE_CONNECT_PRIVATE_KEY` (el contenido del archivo `.p8`,
-  marcado como «Secure»). Los comentarios al inicio del `codemagic.yaml`
-  explican cada bloque.
-
-## El día de la instalación (pasos en orden)
-
-1. **Membresía Apple Developer activa (US$99/año).** Es un cobro de
-   Apple y se hace con tu Apple ID en developer.apple.com. Si ya tienes
-   cuenta de desarrollador pero la membresía venció, solo hay que
-   renovarla. Sin la membresía activa, Apple no deja firmar la app ni
-   subirla a TestFlight. Actívala el mismo día de la instalación, no
-   antes, para que el año empiece a correr con la app ya en tu teléfono.
-2. **Crear la app en App Store Connect.** Entra a
-   appstoreconnect.apple.com → «Mis apps» → «+» → «Nueva app»:
-   plataforma iOS, nombre **EUC OneWheel**, idioma principal español,
-   **bundle id `com.euconewheel.eucOnewheel`** (se elige de la lista;
-   si no aparece, se registra primero en developer.apple.com →
-   Certificates, Identifiers & Profiles → Identifiers) y un SKU
-   cualquiera, por ejemplo `euc-onewheel-001`. De paso, en «Usuarios y
-   acceso» → «Claves», crea la clave de API (rol App Manager) y guarda
-   el archivo `.p8`, el Issuer ID y el Key ID: son los datos de los
-   pasos siguientes.
-3. **Cuenta en Codemagic y conectar el proyecto.** Sube esta carpeta a
-   un repositorio de GitHub (privado está bien), crea la cuenta en
-   codemagic.io y conecta el repositorio: Codemagic detecta el
-   `codemagic.yaml` y el flujo «iOS a TestFlight». Después crea:
-   - la **integración** con App Store Connect llamada
-     `EUC OneWheel ASC`, usando la clave de API del paso 2;
-   - el **grupo de variables** `credenciales_app_store` con
-     `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_IDENTIFIER`
-     y `APP_STORE_CONNECT_PRIVATE_KEY` (esta última como «Secure»).
-4. **Disparar el flujo en Codemagic.** Pulsa «Start new build» y elige
-   «iOS a TestFlight». Codemagic compila, firma y sube la app a
-   TestFlight solo; tarda unos minutos y Apple puede tardar un rato
-   más en procesar la versión antes de mostrarla.
-5. **Instalar desde TestFlight en tu iPhone.** Instala **TestFlight**
-   (la app oficial y gratuita de Apple), acepta la invitación de
-   prueba de EUC OneWheel y descárgala. Listo: el ícono rojo queda en
-   tu pantalla de inicio como cualquier app, con tu logo y tu nombre.
-   Las mejoras futuras llegan como actualizaciones por el mismo camino.
-6. (Opcional, después) Publicarla en la App Store para todo el público:
-   Apple revisa cada app antes de publicarla (normalmente 1–2 días).
-
----
-*Versión del proyecto: 1.0.0 · Hecha con Flutter · La telemetría
-Bluetooth es fase 2; el GPS de esta v1 es real.*
+La app se prueba de forma **privada por TestFlight** (pipeline de
+Codemagic ya verificado con la v1). No se publica ni se envía a
+revisión pública sin aprobación expresa.

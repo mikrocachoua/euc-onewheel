@@ -16,6 +16,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>euc_onewheel</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>EUC OneWheel usa el Bluetooth para conectarse con tu monociclo eléctrico, detectar su marca y modelo y mostrar su telemetría en vivo (velocidad, batería, voltaje y temperatura).</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
