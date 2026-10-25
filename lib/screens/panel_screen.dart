@@ -17,6 +17,7 @@ import '../theme.dart';
 import '../utils/units.dart';
 import '../widgets/speed_gauge.dart';
 import '../widgets/ui_kit.dart';
+import '../widgets/wheel_controls_card.dart';
 
 /// Panel de conducción de EUC OneWheel (base v2): medidor circular
 /// grande de velocidad, indicadores personalizables (batería,
@@ -31,8 +32,9 @@ import '../widgets/ui_kit.dart';
 /// Los controles de la rueda solo se habilitan cuando el adaptador
 /// de la marca conectada implementa el comando Y la compuerta de
 /// seguridad lo autoriza (rueda detenida + confirmación explícita).
-/// En la base v2 ningún adaptador envía comandos todavía, así que se
-/// muestran visibles pero deshabilitados, con su explicación.
+/// Con rueda conectada el panel muestra la tarjeta de controles
+/// reales; sin rueda o en modo demo muestra la explicación
+/// correspondiente.
 class PanelScreen extends StatefulWidget {
   const PanelScreen({
     super.key,
@@ -480,12 +482,23 @@ class _PanelScreenState extends State<PanelScreen> {
         PanelIndicator.odometro => Icons.pin_outlined,
       };
 
-  /// Controles de la rueda: visibles siempre en el panel; habilitados
-  /// solo si el adaptador de la marca conectada implementa el comando
-  /// (hoy: ninguno envía comandos todavía) y la compuerta de
-  /// seguridad lo autoriza en el momento de usarlos.
+  /// Controles de la rueda: con rueda conectada se muestra la
+  /// tarjeta de controles reales; sin rueda o en modo demo, la
+  /// explicación correspondiente. Cada comando pasa por la
+  /// compuerta de seguridad en el momento de usarlo.
   Widget _controlsSection(WheelTelemetry? live, bool demo) {
     final ctrl = widget.controller;
+    // Con rueda real conectada y telemetría en vivo, el panel usa
+    // la tarjeta de controles reales (la misma de Dispositivos).
+    // La sección anterior era un marcador: sus botones no mandaban
+    // nada (los deslizadores tenían manejadores vacíos, Calibrar y
+    // Apagar siempre deshabilitados) y su texto decía que ningún
+    // comando estaba implementado aunque el adaptador sí los
+    // implementa (V9, build #9: la tarjeta mostraba ese texto con
+    // la rueda conectada y telemetría en vivo).
+    if (!demo && live != null && ctrl != null) {
+      return WheelControlsCard(controller: ctrl);
+    }
     final capabilities = demo
         ? WheelCapabilities.none
         : (ctrl?.adapter?.capabilities ?? WheelCapabilities.none);
