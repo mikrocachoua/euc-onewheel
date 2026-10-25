@@ -218,6 +218,20 @@ class WheelConnectionController extends ChangeNotifier {
         if (!connected) _onLinkLost();
       });
       _frameSub = link.frames.listen(_onFrame, onError: (_) {});
+      // InMotion V2 no emite sin que se le pregunte: con huella NUS
+      // y nombre de InMotion, el adaptador se adjunta ya para que
+      // sus peticiones iniciales provoquen la respuesta de la rueda.
+      // Sin esto, la app esperaba una primera trama que nunca llega
+      // y la marca quedaba en «Desconocida» (V9-600214BD, build #8).
+      final preBrand = WheelDetector.preAttachBrand(
+        advertisedName: target.name,
+        fingerprint: link.fingerprint,
+      );
+      if (preBrand != null) {
+        _brandSniffed = true;
+        _identity = _identity.copyWith(brand: preBrand);
+        _attachAdapter(preBrand);
+      }
       _setState(WheelLinkState.connected);
     } on BleException catch (e) {
       _link = null;

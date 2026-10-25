@@ -293,7 +293,15 @@ class DevicesScreen extends StatelessWidget {
   }
 
   Widget _realList(BuildContext context) {
-    final devices = controller.foundDevices;
+    // La rueda ya conectada no vuelve a ofrecerse como «Conectar»:
+    // el escaneo se detuvo al conectar y la lista quedó congelada
+    // con ella dentro (V9-600214BD, build #8).
+    final connectedId = controller.state == WheelLinkState.connected
+        ? controller.identity.deviceId
+        : null;
+    final devices = controller.foundDevices
+        .where((d) => d.deviceId != connectedId)
+        .toList();
     if (controller.state == WheelLinkState.scanning && devices.isEmpty) {
       return const SurfaceCard(
         child: Row(
@@ -316,6 +324,11 @@ class DevicesScreen extends StatelessWidget {
       );
     }
     if (devices.isEmpty) {
+      // Conectada y sin otros dispositivos cerca: no hay nada que
+      // listar (el mensaje de «Buscar» no aplica estando conectada).
+      if (controller.state == WheelLinkState.connected) {
+        return const SizedBox.shrink();
+      }
       return const SurfaceCard(
         child: Text(
           'Todavía no se ha encontrado ningún dispositivo. Pulsa '

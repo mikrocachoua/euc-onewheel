@@ -188,8 +188,21 @@ class _PanelScreenState extends State<PanelScreen> {
   }
 
   Widget _header(BuildContext context, bool demo) {
+    // El panel se abre como página empujada desde Dispositivos:
+    // sin botón de regreso visible no había forma de volver
+    // (reportado en la V9, build #8). Solo aparece cuando la ruta
+    // puede cerrarse; como raíz no se muestra.
+    final canPop = Navigator.of(context).canPop();
     return Row(
       children: [
+        if (canPop) ...[
+          CircleIconButton(
+            icon: Icons.arrow_back_ios_new,
+            tooltip: 'Volver',
+            onTap: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: 12),
+        ],
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: Image.asset('assets/logo.jpg',

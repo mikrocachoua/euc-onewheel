@@ -147,4 +147,71 @@ void main() {
       );
     });
   });
+
+  group('WheelDetector · pre-clasificación InMotion V2', () {
+    GattFingerprint nusFingerprint() => WheelDetector.fromGatt(
+          serviceUuids: {GattUuid.nusService},
+          characteristicUuids: {GattUuid.nusRxChar, GattUuid.nusTxChar},
+        );
+
+    test('V9-600214BD real: NUS + nombre V9 → InMotion V2', () {
+      expect(
+        WheelDetector.preAttachBrand(
+          advertisedName: 'V9-600214BD',
+          fingerprint: nusFingerprint(),
+        ),
+        WheelBrand.inmotionV2,
+      );
+    });
+
+    test('otros modelos V (V11Y, V12, V14) también pre-clasifican', () {
+      for (final name in ['V11Y-123456', 'V12-ABCDEF', 'V14-000001']) {
+        expect(
+          WheelDetector.preAttachBrand(
+            advertisedName: name,
+            fingerprint: nusFingerprint(),
+          ),
+          WheelBrand.inmotionV2,
+        );
+      }
+    });
+
+    test('nombre «INMOTION …» pre-clasifica aunque no empiece por V', () {
+      expect(
+        WheelDetector.preAttachBrand(
+          advertisedName: 'INMOTION V13',
+          fingerprint: nusFingerprint(),
+        ),
+        WheelBrand.inmotionV2,
+      );
+    });
+
+    test('nombre de otra marca, vacío o sin NUS no pre-clasifica', () {
+      expect(
+        WheelDetector.preAttachBrand(
+          advertisedName: 'KS-16X',
+          fingerprint: nusFingerprint(),
+        ),
+        isNull,
+      );
+      expect(
+        WheelDetector.preAttachBrand(
+          advertisedName: '',
+          fingerprint: nusFingerprint(),
+        ),
+        isNull,
+      );
+      final shared = WheelDetector.fromGatt(
+        serviceUuids: {GattUuid.serialService},
+        characteristicUuids: {GattUuid.serialChar},
+      );
+      expect(
+        WheelDetector.preAttachBrand(
+          advertisedName: 'V9-600214BD',
+          fingerprint: shared,
+        ),
+        isNull,
+      );
+    });
+  });
 }

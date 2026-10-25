@@ -178,4 +178,27 @@ abstract final class WheelDetector {
     if (candidates.isEmpty || candidates.contains(brand)) return brand;
     return null;
   }
+
+  /// Pre-clasificación para ruedas que no emiten sin que se les
+  /// pregunte (InMotion V2): si la huella dice NUS y el nombre
+  /// anunciado es de InMotion («V9-…», «V11-…», «INMOTION …»),
+  /// la marca se conoce al conectar, sin esperar una primera trama.
+  /// Sin esto, la app esperaba un marco que la rueda nunca manda y
+  /// la marca quedaba en «Desconocida» para siempre: la V9 solo
+  /// responde cuando el adaptador le escribe sus peticiones
+  /// iniciales (caso real visto en la V9-600214BD, build #8).
+  static WheelBrand? preAttachBrand({
+    required String advertisedName,
+    required GattFingerprint fingerprint,
+  }) {
+    if (fingerprint.transport != GattUuid.transportNus) return null;
+    if (!fingerprint.candidates.contains(WheelBrand.inmotionV2)) {
+      return null;
+    }
+    final name = advertisedName.trim().toLowerCase();
+    if (name.contains('inmotion') || RegExp(r'^v\d+').hasMatch(name)) {
+      return WheelBrand.inmotionV2;
+    }
+    return null;
+  }
 }
