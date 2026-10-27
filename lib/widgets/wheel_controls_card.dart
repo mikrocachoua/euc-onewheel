@@ -92,6 +92,11 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
     final caps = adapter.capabilities;
     final brand = adapter.brand;
     final moving = _c.telemetry.isMoving;
+    // Encabezado con el modelo real cuando se conoce (p. ej.
+    // «Inmotion V9»), no solo la familia del protocolo («InMotion
+    // V2»): la familia es el adaptador, el modelo es la rueda.
+    final modelLabel =
+        _c.telemetry.model ?? _c.identity.model ?? brand.label;
 
     final unavailable = <String>[
       if (!caps.lights) 'luz',
@@ -116,7 +121,7 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                brand.label,
+                modelLabel,
                 style: const TextStyle(
                   color: funcBlue,
                   fontWeight: FontWeight.w800,
@@ -438,7 +443,6 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
   Widget _label(String text) => Text(
         text,
         style: const TextStyle(
-          color: Colors.white,
           fontWeight: FontWeight.w700,
           fontSize: 14,
         ),
@@ -489,7 +493,6 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
             suffix == null ? '$value' : '$value $suffix',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 15,
             ),
