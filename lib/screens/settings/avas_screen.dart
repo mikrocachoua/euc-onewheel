@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/avas_engine.dart';
+import '../../services/avas_tone_backend.dart';
 import '../../state/app_settings.dart';
 import '../../theme.dart';
 import '../../widgets/ui_kit.dart';
@@ -16,20 +17,59 @@ import 'settings_widgets.dart';
 /// - Solo suena con rueda conectada (o demo) y velocidad > 0.
 /// - Si salta una alarma real, el sonido se agacha casi a silencio:
 ///   las alarmas de la rueda nunca quedan tapadas.
-/// - La lógica de decisión está completa y probada; el reproductor
-///   de audio nativo se conecta en una fase posterior (hoy el motor
-///   de audio es básico y silencioso).
-class AvasScreen extends StatelessWidget {
+/// - El Panel reproduce un tono sintetizado real; esta pantalla
+///   muestra la vista previa y ofrece un botón de prueba que lo
+///   hace sonar parado, sin rodar.
+class AvasScreen extends StatefulWidget {
   const AvasScreen({super.key, required this.settings});
 
   final AppSettings settings;
 
   @override
+  State<AvasScreen> createState() => _AvasScreenState();
+}
+
+class _AvasScreenState extends State<AvasScreen> {
+  final AvasToneBackend _backend = AvasToneBackend();
+  bool _testing = false;
+
+  @override
+  void dispose() {
+    _backend.stop();
+    super.dispose();
+  }
+
+  /// Prueba el tono con el preset y volumen actuales, a 25 km/h
+  /// simulados. No necesita rodar ni rueda conectada.
+  void _toggleTest() {
+    final s = widget.settings;
+    if (_testing) {
+      _backend.stop();
+      setState(() => _testing = false);
+      return;
+    }
+    _backend.apply(
+      computeAvas(
+        enabled: true,
+        connected: true,
+        speedKmh: 25,
+        alarmActive: false,
+        preset: s.avasPreset,
+        volume: s.avasVolume,
+      ),
+      preset: s.avasPreset,
+    );
+    setState(() => _testing = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final settings = widget.settings;
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) {
-        // Estado actual de la lógica, calculado sin audio real.
+        // Vista previa del tono; el botón de prueba lo reproduce
+        // de verdad (a 25 km/h simulados).
         final preview = computeAvas(
           enabled: settings.avasEnabled,
           connected: true,
@@ -102,6 +142,29 @@ class AvasScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            const SectionHeader('Probar sonido'),
+            SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Suena parado, sin rodar y sin rueda conectada: '
+                    'sirve para comprobar que el teléfono emite el '
+                    'tono con el preset y volumen actuales.',
+                    style: TextStyle(color: subText, fontSize: 13.5),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _toggleTest,
+                    icon: Icon(
+                        _testing ? Icons.stop_outlined : Icons.play_arrow),
+                    label: Text(
+                        _testing ? 'Detener prueba' : 'Probar sonido'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             SurfaceCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,12 +199,13 @@ class AvasScreen extends StatelessWidget {
                         fontSize: 13.5, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),
-                  const PillBadge('Motor de audio: básico', color: safetyAmber),
+                  const PillBadge('Audio real: suena en el Panel',
+                      color: safetyAmber),
                   const SizedBox(height: 6),
                   const Text(
-                    'La lógica de tonos y volúmenes está completa; el '
-                    'reproductor de audio nativo se conecta en la '
-                    'siguiente fase.',
+                    'El Panel reproduce un tono sintetizado real que '
+                    'sigue a la velocidad. El botón de prueba de '
+                    'arriba lo hace sonar parado, sin rodar.',
                     style: TextStyle(color: subText, fontSize: 12.5),
                   ),
                 ],

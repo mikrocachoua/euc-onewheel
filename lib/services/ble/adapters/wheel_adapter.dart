@@ -44,6 +44,19 @@ abstract class WheelAdapter {
   /// no pasan por la compuerta de seguridad.
   List<Uint8List> initialRequests();
 
+  /// Velocidad máxima de fábrica del modelo detectado, en km/h, o
+  /// `null` si no está verificada para ese modelo. La tarjeta la usa
+  /// como tope del stepper y el adaptador como guarda en el envío:
+  /// ningún comando de máxima o alarma puede superar este valor.
+  /// Solo se publica con dato verificado, nunca estimado.
+  int? get factoryMaxKmh => null;
+
+  /// `true` si máxima y alarma viajan en una sola trama combinada
+  /// (familia nueva InMotion: V9, V11Y, V13, V14, V12S). La tarjeta
+  /// muestra entonces una sección conjunta en vez de dos editores
+  /// separados, porque mandar la alarma sin la máxima la borraría.
+  bool get usesCombinedMaxAlarm => false;
+
   /// Tramas de **solo lectura** a repetir mientras dure la
   /// conexión, para los protocolos que no emiten en continuo y
   /// solo responden cuando se les pregunta (p. ej. InMotion V2).
@@ -78,6 +91,16 @@ abstract class BaseWheelAdapter implements WheelAdapter {
 
   @override
   WheelTelemetry get telemetry => _telemetry;
+
+  /// Sin tope verificado por omisión (cada marca lo publica cuando
+  /// tiene dato verificado; ver WheelAdapter.factoryMaxKmh).
+  @override
+  int? get factoryMaxKmh => null;
+
+  /// Sin trama combinada por omisión (solo la familia nueva
+  /// InMotion la usa; ver WheelAdapter.usesCombinedMaxAlarm).
+  @override
+  bool get usesCombinedMaxAlarm => false;
 
   @override
   WheelIdentity get identity => _identity;

@@ -92,6 +92,13 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
     final caps = adapter.capabilities;
     final brand = adapter.brand;
     final moving = _c.telemetry.isMoving;
+    // Familia nueva InMotion: máxima y alarma viajan en una sola
+    // trama; la tarjeta muestra una sección conjunta en vez de
+    // dos editores separados (mandar la alarma sin la máxima la
+    // borraría). El tope es el de fábrica cuando está verificado.
+    final combinedMaxAlarm =
+        brand == WheelBrand.inmotionV2 && adapter.usesCombinedMaxAlarm;
+    final factoryCap = adapter.factoryMaxKmh;
     // Encabezado con el modelo real cuando se conoce (p. ej.
     // «Inmotion V9»), no solo la familia del protocolo («InMotion
     // V2»): la familia es el adaptador, el modelo es la rueda.
@@ -186,12 +193,15 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
                   ],
                 ),
               ],
-              if (caps.tiltBack && brand != WheelBrand.kingsong) ...[
+              if (caps.tiltBack &&
+                  brand != WheelBrand.kingsong &&
+                  !combinedMaxAlarm) ...[
                 const SizedBox(height: 14),
                 _label('Velocidad máxima (tilt-back)'),
                 _stepperRow(
                   value: _tiltBackKmh,
                   suffix: 'km/h',
+                  max: factoryCap ?? 99,
                   onChanged: (v) => setState(() => _tiltBackKmh = v),
                   onApply: () => _confirmCritical(
                     TiltBackRequest(_tiltBackKmh),
@@ -200,6 +210,46 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
                         'El tilt-back nuevo será $_tiltBackKmh km/h.',
                   ),
                 ),
+              ],
+              if (combinedMaxAlarm) ...[
+                const SizedBox(height: 14),
+                _label('Velocidad máxima y alarma'),
+                if (factoryCap != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Límite de fábrica: $factoryCap km/h. La alarma '
+                    'viaja junto con la máxima en un solo comando.',
+                    style: const TextStyle(color: subText, fontSize: 13),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                _label('Máxima'),
+                _stepperRow(
+                  value: _tiltBackKmh,
+                  suffix: 'km/h',
+                  max: factoryCap ?? 99,
+                  onChanged: (v) => setState(() {
+                    _tiltBackKmh = v;
+                    if (_alarmKmh[0] > v) _alarmKmh[0] = v;
+                  }),
+                ),
+                _label('Alarma'),
+                _stepperRow(
+                  value: _alarmKmh[0],
+                  suffix: 'km/h',
+                  max: _tiltBackKmh,
+                  onChanged: (v) => setState(() => _alarmKmh[0] = v),
+                ),
+                _applyButton(() => _confirmCritical(
+                      SpeedAlarmsRequest(
+                        [_alarmKmh[0]],
+                        tiltBackKmh: _tiltBackKmh,
+                      ),
+                      title: 'Cambiar la velocidad máxima y la alarma',
+                      body: 'La rueda debe estar totalmente detenida. '
+                          'La máxima será $_tiltBackKmh km/h y la '
+                          'alarma ${_alarmKmh[0]} km/h.',
+                    )),
               ],
               if (brand == WheelBrand.kingsong &&
                   (caps.speedAlarms || caps.tiltBack)) ...[
@@ -234,7 +284,7 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
                 ),
               ],
               if (caps.speedAlarms &&
-                  (brand == WheelBrand.inmotionV2 ||
+                  ((brand == WheelBrand.inmotionV2 && !combinedMaxAlarm) ||
                       brand == WheelBrand.ninebotZ)) ...[
                 const SizedBox(height: 14),
                 _label(brand == WheelBrand.ninebotZ

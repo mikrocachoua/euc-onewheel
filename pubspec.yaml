@@ -1,7 +1,7 @@
 name: euc_onewheel
 description: "EUC OneWheel — app para rodar en monociclo eléctrico: panel de conducción, grabación de rodadas con GPS, mapa, historial y telemetría Bluetooth multimarca."
 publish_to: 'none'
-version: 2.0.0+11
+version: 2.0.0+12
 
 environment:
   sdk: ^3.5.0

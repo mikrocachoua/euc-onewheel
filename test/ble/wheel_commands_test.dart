@@ -188,10 +188,10 @@ void main() {
           ['aaaa140360500126']);
     });
 
-    test('V11Y: velocidad máxima 25 km/h (×100 little-endian)', () {
+    test('V11Y: velocidad máxima 25 km/h (trama combinada de 5 bytes)', () {
       final a = adapterFor(carTypeV11y);
       expect(framesOf(a.buildCommand(const TiltBackRequest(25))),
-          ['aaaa14046021c4099c']);
+          ['aaaa14066021c40900009e']);
     });
 
     test('V11Y: bloqueo, calibración y beep', () {
@@ -199,7 +199,7 @@ void main() {
       expect(framesOf(a.buildCommand(const MotorLockRequest(true))),
           ['aaaa140360310147']);
       expect(framesOf(a.buildCommand(const CalibrationRequest())),
-          ['aaaa1405604201000133']);
+          ['aaaa1405605201000123']);
       expect(framesOf(a.buildCommand(const BeepRequest())),
           ['aaaa14046051026447']);
     });
@@ -223,6 +223,40 @@ void main() {
       final a = adapterFor(carTypeV11, versionsV11Old);
       expect(framesOf(a.buildCommand(const LightRequest(LightState.on))),
           ['aaaa140360400136']);
+    });
+
+    test('V9: luz de 2 bytes, claxon playSound y calibración 0x52', () {
+      const carTypeV9 = 'aaaa11088201020c0101010095';
+      final a = adapterFor(carTypeV9);
+      expect(a.factoryMaxKmh, 45);
+      expect(a.usesCombinedMaxAlarm, isTrue);
+      expect(framesOf(a.buildCommand(const LightRequest(LightState.on))),
+          ['aaaa140360500126']);
+      expect(framesOf(a.buildCommand(const BeepRequest())),
+          ['aaaa14046051180138']);
+      expect(framesOf(a.buildCommand(const CalibrationRequest())),
+          ['aaaa1405605201000123']);
+    });
+
+    test('V9: máxima de 5 bytes y tope de fábrica 45 km/h', () {
+      const carTypeV9 = 'aaaa11088201020c0101010095';
+      final a = adapterFor(carTypeV9);
+      expect(framesOf(a.buildCommand(const TiltBackRequest(25))),
+          ['aaaa14066021c40900009e']);
+      // 60 km/h se recorta al tope de fábrica (45) en el envío.
+      expect(framesOf(a.buildCommand(const TiltBackRequest(60))),
+          ['aaaa1406602194110000d6']);
+    });
+
+    test('V9: una sola alarma, siempre junto con la máxima', () {
+      const carTypeV9 = 'aaaa11088201020c0101010095';
+      final a = adapterFor(carTypeV9);
+      expect(
+          framesOf(a.buildCommand(
+              const SpeedAlarmsRequest([30], tiltBackKmh: 25))),
+          ['aaaa14066021c409b80b2d']);
+      // Sin máxima no hay trama combinada: no se ofrece nada.
+      expect(a.buildCommand(const SpeedAlarmsRequest([20, 30])), isNull);
     });
   });
 

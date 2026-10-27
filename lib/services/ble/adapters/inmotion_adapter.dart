@@ -642,8 +642,35 @@ class InMotionAdapter extends BaseWheelAdapter {
       _model == _InMotionModel.v12ht ||
       _model == _InMotionModel.v12pro;
 
-  bool get _isV14Family =>
-      _model == _InMotionModel.v14g || _model == _InMotionModel.v14s;
+  /// Familia nueva: máxima y alarma viajan en una sola trama 0x21
+  /// de 5 bytes (WheelLog: updateMaxSpeed/updateAlarmSpeed usan
+  /// setMaxSpeedV14 para estos modelos). La V9 está aquí, no en la
+  /// familia V12: por eso su luz sigue siendo de 2 bytes.
+  bool get _isNewFamily =>
+      _model == _InMotionModel.v14g ||
+      _model == _InMotionModel.v14s ||
+      _model == _InMotionModel.v13 ||
+      _model == _InMotionModel.v13pro ||
+      _model == _InMotionModel.v11y ||
+      _model == _InMotionModel.v9 ||
+      _model == _InMotionModel.v12s;
+
+  @override
+  bool get usesCombinedMaxAlarm => _isNewFamily;
+
+  /// Topes de fábrica verificados, en km/h. Solo la V9 tiene dato
+  /// verificado (45 km/h); los demás modelos quedan sin tope hasta
+  /// verificarlos uno por uno, nunca estimados.
+  @override
+  int? get factoryMaxKmh => _model == _InMotionModel.v9 ? 45 : null;
+
+  /// Recorta [v] al tope de fábrica cuando se conoce; sin tope
+  /// verificado, conserva la guarda anterior de 200 km/h.
+  /// Guarda de última línea en el envío.
+  int _clampFactory(int v) {
+    final cap = factoryMaxKmh;
+    return cap == null ? v.clamp(0, 200) : v.clamp(0, cap);
+  }
 
   /// Entero ×100 en little-endian (así viajan las velocidades).
   static List<int> _le100(int v) {
@@ -672,25 +699,43 @@ class InMotionAdapter extends BaseWheelAdapter {
             (_model == _InMotionModel.v11 && _protoVer < 2) ? 0x40 : 0x50;
         return [CommandStep(_control([code, on]))];
       case BeepRequest():
-        return [CommandStep(_control(const [0x51, 0x02, 0x64]))];
+        // WheelLog wheelBeep: solo V13/V13PRO/V14/V11Y usan playBeep
+        // [0x51, 0x02, 0x64]; el resto, incluida la V9, usa playSound
+        // [0x51, 0x18, 0x01] (0x41 en vez de 0x51 solo para V11 con
+        // placa antigua). Mandar playBeep a la V9 era el bug del
+        // claxon que no sonaba.
+        if (_model == _InMotionModel.v13 ||
+            _model == _InMotionModel.v13pro ||
+            _model == _InMotionModel.v14g ||
+            _model == _InMotionModel.v14s ||
+            _model == _InMotionModel.v11y) {
+          return [CommandStep(_control(const [0x51, 0x02, 0x64]))];
+        }
+        final code =
+            (_model == _InMotionModel.v11 && _protoVer < 2) ? 0x41 : 0x51;
+        return [CommandStep(_control([code, 0x18, 0x01]))];
       case TiltBackRequest(:final kmh):
-        final v = _le100(kmh.clamp(0, 200));
-        if (_isV14Family) {
-          // V14: la trama lleva también la velocidad de alarma (0 =
-          // sin cambio de alarma conocido; así lo manda la referencia
-          // cuando solo se ajusta la máxima).
+        final v = _le100(_clampFactory(kmh));
+        if (_isNewFamily) {
+          // Familia nueva: trama combinada de 5 bytes; la alarma
+          // viaja en el segundo valor (0 = sin cambio de alarma
+          // conocido, así lo manda la referencia al ajustar solo
+          // la máxima).
           return [CommandStep(_control([0x21, v[0], v[1], 0, 0]))];
         }
         return [CommandStep(_control([0x21, v[0], v[1]]))];
       case SpeedAlarmsRequest(:final speedsKmh, :final tiltBackKmh):
         if (_isV12Family && speedsKmh.length == 2) {
-          final a = _le100(speedsKmh[0]);
-          final b = _le100(speedsKmh[1]);
+          final a = _le100(_clampFactory(speedsKmh[0]));
+          final b = _le100(_clampFactory(speedsKmh[1]));
           return [CommandStep(_control([0x3E, a[0], a[1], b[0], b[1]]))];
         }
-        if (_isV14Family && speedsKmh.length == 1 && tiltBackKmh != null) {
-          final v = _le100(tiltBackKmh);
-          final a = _le100(speedsKmh[0]);
+        if (_isNewFamily && speedsKmh.length == 1 && tiltBackKmh != null) {
+          // Una sola alarma, siempre junto con la máxima actual:
+          // mandar la alarma sin reenviar la máxima la
+          // sobrescribiría. La tarjeta envía ambas juntas.
+          final v = _le100(_clampFactory(tiltBackKmh));
+          final a = _le100(_clampFactory(speedsKmh[0]));
           return [CommandStep(_control([0x21, v[0], v[1], a[0], a[1]]))];
         }
         return null;
@@ -699,7 +744,14 @@ class InMotionAdapter extends BaseWheelAdapter {
       case TransportModeRequest(:final on):
         return [CommandStep(_control([0x32, on ? 1 : 0]))];
       case CalibrationRequest():
-        return [CommandStep(_control(const [0x42, 0x01, 0x00, 0x01]))];
+        // Solo V11 con placa antigua usa [0x42…]; el resto, incluida
+        // la V9, usa wheelCalibrationTurn [0x52…]. Mandar 0x42 a la
+        // V9 era el "se activa pero no calibra": la rueda ignoraba
+        // la trama y la app la marcaba como enviada.
+        if (_model == _InMotionModel.v11 && _protoVer < 2) {
+          return [CommandStep(_control(const [0x42, 0x01, 0x00, 0x01]))];
+        }
+        return [CommandStep(_control(const [0x52, 0x01, 0x00, 0x01]))];
       case PowerOffRequest():
         // Apagado en dos etapas (comando Diagnóstico): la referencia
         // manda la segunda al recibir el diagnóstico de la rueda;
