@@ -82,6 +82,24 @@ abstract final class WheelDetector {
         (services.contains(GattUuid.inmotionWriteService) ||
             chars.contains(GattUuid.inmotionWriteChar));
 
+    // El NUS decide primero: ninguna marca del serial compartido
+    // ni la InMotion clásica lo expone (solo lo comparten InMotion
+    // V2 y Ninebot Z, que ya van juntas como candidatas). Una V2
+    // que además expone servicios heredados (la V11Y expone el
+    // serial ffe0/ffe1 junto al NUS) es V2, no serial: antes el
+    // orden inverso la clasificaba mal y el pre-attach fallaba.
+    if (hasNus) {
+      final candidates = <WheelBrand>{WheelBrand.inmotionV2};
+      // Ninebot Z comparte el NUS y a veces expone además fee7.
+      candidates.add(WheelBrand.ninebotZ);
+      return GattFingerprint(
+        candidates: candidates,
+        transport: GattUuid.transportNus,
+        transportConfidence:
+            services.contains(GattUuid.ninebotZExtraService) ? 60 : 80,
+      );
+    }
+
     if (hasInmotionClassic && !hasSerial) {
       return const GattFingerprint(
         candidates: {WheelBrand.inmotion},
@@ -108,18 +126,6 @@ abstract final class WheelDetector {
         candidates: candidates,
         transport: GattUuid.transportSharedSerial,
         transportConfidence: 90,
-      );
-    }
-
-    if (hasNus) {
-      final candidates = <WheelBrand>{WheelBrand.inmotionV2};
-      // Ninebot Z comparte el NUS y a veces expone además fee7.
-      candidates.add(WheelBrand.ninebotZ);
-      return GattFingerprint(
-        candidates: candidates,
-        transport: GattUuid.transportNus,
-        transportConfidence:
-            services.contains(GattUuid.ninebotZExtraService) ? 60 : 80,
       );
     }
 

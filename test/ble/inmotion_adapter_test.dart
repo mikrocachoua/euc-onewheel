@@ -47,7 +47,7 @@ void main() {
     test('peticiones iniciales y de sondeo: tramas exactas', () {
       final a = InMotionAdapter();
       final initial = a.initialRequests();
-      expect(initial, hasLength(6));
+      expect(initial, hasLength(7));
       // getCarType: AA AA | 11 02 02 01 | XOR 10.
       expect(hexStr(initial[0]), 'aaaa1102020110');
       // getSerialNumber y getVersions comparten cabecera MainInfo.
@@ -57,6 +57,9 @@ void main() {
       expect(hexStr(initial[4]), 'aaaa14011104');
       // getRealTimeData: AA AA | 14 01 04 | XOR 11.
       expect(hexStr(initial[5]), 'aaaa14010411');
+      // getSettings (build #13): AA AA | 14 02 20 20 | XOR 16.
+      expect(hexStr(initial[6]), 'aaaa1402202016');
+      expect(hexStr(a.settingsRequest!), 'aaaa1402202016');
       // El sondeo repite batería, estadísticas y tiempo real.
       expect(a.pollInterval, const Duration(milliseconds: 300));
       final poll = a.pollRequests();
@@ -70,6 +73,33 @@ void main() {
       expect(a.telemetry.batteryPct, isNull);
       expect(a.modelName, isNull);
       expect(a.protocolVersion, 0);
+      expect(a.reportedMaxKmh, isNull);
+      expect(a.reportedAlarmKmh, isNull);
+    });
+
+    test('trama de ajustes: reporta máxima y alarma guardadas', () {
+      final a = InMotionAdapter();
+      // Respuesta de ajustes: flags 14, comando 20, datos de 36
+      // bytes (máxima 45.00 en 1, alarma 30.00 en 3, resto ceros).
+      final data = List<int>.filled(36, 0);
+      data[1] = 0x94;
+      data[2] = 0x11; // 0x1194 = 4500 → 45.00 km/h.
+      data[3] = 0xB8;
+      data[4] = 0x0B; // 0x0BB8 = 3000 → 30.00 km/h.
+      final frame = InMotionAdapter.buildMessage(
+          flags: 0x14, command: 0x20, data: data);
+      expect(a.decode(frame), isFalse); // No es telemetría en vivo.
+      expect(a.reportedMaxKmh, 45.0);
+      expect(a.reportedAlarmKmh, 30.0);
+    });
+
+    test('trama de ajustes truncada no publica valores', () {
+      final a = InMotionAdapter();
+      final frame = InMotionAdapter.buildMessage(
+          flags: 0x14, command: 0x20, data: const [0x00, 0x94, 0x11]);
+      a.decode(frame);
+      expect(a.reportedMaxKmh, isNull);
+      expect(a.reportedAlarmKmh, isNull);
     });
   });
 

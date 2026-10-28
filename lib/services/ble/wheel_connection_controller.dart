@@ -138,6 +138,20 @@ class WheelConnectionController extends ChangeNotifier {
       );
       if (!verdict.allowed) return verdict;
     }
+    // Tras cambiar la máxima o las alarmas, re-leer los ajustes
+    // que la rueda tiene guardados: así la tarjeta muestra lo
+    // que la rueda realmente aplicó, no solo lo que se envió.
+    if (request is TiltBackRequest || request is SpeedAlarmsRequest) {
+      final settingsRequest = adapter.settingsRequest;
+      final link = _link;
+      if (settingsRequest != null && link != null) {
+        unawaited(
+            Future<void>.delayed(const Duration(milliseconds: 600)).then((_) {
+          if (_link != link || _adapter != adapter) return;
+          unawaited(link.write(settingsRequest).catchError((_) {}));
+        }));
+      }
+    }
     return const GateVerdict.allow();
   }
 
@@ -231,6 +245,19 @@ class WheelConnectionController extends ChangeNotifier {
         _brandSniffed = true;
         _identity = _identity.copyWith(brand: preBrand);
         _attachAdapter(preBrand);
+      }
+      if (preBrand == null && link.transport == GattUuid.transportNus) {
+        // Sondeo: una InMotion V2 no emite si no se le pregunta,
+        // así que sin adaptador nunca llega la primera trama y el
+        // olfateo nunca se dispara. La petición de tipo de
+        // vehículo provoca la respuesta AA AA que el olfateo ya
+        // reconoce y adjunta el adaptador; una Ninebot Z no
+        // contesta con esa trama, así que no hay riesgo de
+        // adjuntar mal. Red de seguridad para ruedas cuyo nombre
+        // o huella no pasaron el pre-attach.
+        unawaited(link
+            .write(InMotionAdapter.getCarTypeRequest())
+            .catchError((_) {}));
       }
       _setState(WheelLinkState.connected);
     } on BleException catch (e) {

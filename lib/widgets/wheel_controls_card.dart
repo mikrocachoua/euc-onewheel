@@ -99,6 +99,11 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
     final combinedMaxAlarm =
         brand == WheelBrand.inmotionV2 && adapter.usesCombinedMaxAlarm;
     final factoryCap = adapter.factoryMaxKmh;
+    // Lo que la rueda reporta tener guardado (trama de ajustes):
+    // es la verdad de la rueda, no lo que se escribió en los
+    // steppers. Si no coincide con lo enviado, no se guardó.
+    final reportedMax = adapter.reportedMaxKmh;
+    final reportedAlarm = adapter.reportedAlarmKmh;
     // Encabezado con el modelo real cuando se conoce (p. ej.
     // «Inmotion V9»), no solo la familia del protocolo («InMotion
     // V2»): la familia es el adaptador, el modelo es la rueda.
@@ -191,6 +196,20 @@ class _WheelControlsCardState extends State<WheelControlsCard> {
                         ),
                       ),
                   ],
+                ),
+              ],
+              if (brand == WheelBrand.inmotionV2 &&
+                  (reportedMax != null || reportedAlarm != null)) ...[
+                const SizedBox(height: 14),
+                _label('Lo que reporta la rueda'),
+                const SizedBox(height: 6),
+                Text(
+                  'Máxima guardada: '
+                  '${reportedMax != null ? '${reportedMax.round()} km/h' : '—'} · '
+                  'Alarma guardada: '
+                  '${reportedAlarm != null ? '${reportedAlarm.round()} km/h' : '—'}. '
+                  'Si no coincide con lo que enviaste, la rueda no lo aplicó.',
+                  style: const TextStyle(color: subText, fontSize: 13),
                 ),
               ],
               if (caps.tiltBack &&

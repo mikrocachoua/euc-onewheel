@@ -57,6 +57,23 @@ abstract class WheelAdapter {
   /// separados, porque mandar la alarma sin la máxima la borraría.
   bool get usesCombinedMaxAlarm => false;
 
+  /// Petición de solo lectura para pedir los ajustes actuales de
+  /// la rueda (máxima, alarmas…), o `null` si la marca no la
+  /// tiene verificada. No es un comando de control: no pasa por
+  /// la compuerta. El controlador la manda al conectar y tras
+  /// cambiar la máxima o las alarmas, para re-leer lo guardado.
+  Uint8List? get settingsRequest => null;
+
+  /// Máxima y alarma que la rueda REPORTA tener guardadas, en
+  /// km/h, o `null` si aún no llega ninguna trama de ajustes.
+  /// Son la verdad de la rueda, no lo que el usuario escribió en
+  /// los steppers: la tarjeta las muestra tal cual para verificar
+  /// que un cambio sí se guardó. No hace falta un stream propio:
+  /// la tarjeta se reconstruye con cada tick de telemetría (en
+  /// V2 el sondeo corre cada 300 ms), así que aparecen solas.
+  double? get reportedMaxKmh => null;
+  double? get reportedAlarmKmh => null;
+
   /// Tramas de **solo lectura** a repetir mientras dure la
   /// conexión, para los protocolos que no emiten en continuo y
   /// solo responden cuando se les pregunta (p. ej. InMotion V2).
@@ -101,6 +118,17 @@ abstract class BaseWheelAdapter implements WheelAdapter {
   /// InMotion la usa; ver WheelAdapter.usesCombinedMaxAlarm).
   @override
   bool get usesCombinedMaxAlarm => false;
+
+  /// Sin petición de ajustes por omisión (cada marca la publica
+  /// cuando la tiene verificada; ver WheelAdapter.settingsRequest).
+  @override
+  Uint8List? get settingsRequest => null;
+
+  /// Sin ajustes reportados por omisión.
+  @override
+  double? get reportedMaxKmh => null;
+  @override
+  double? get reportedAlarmKmh => null;
 
   @override
   WheelIdentity get identity => _identity;

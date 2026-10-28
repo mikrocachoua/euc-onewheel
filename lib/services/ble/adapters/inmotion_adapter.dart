@@ -51,11 +51,12 @@ import 'wheel_adapter.dart';
 ///   La distancia del viaje es un u16 en decenas de metro,
 ///   salvo en la V13, donde es un u32 en metros con las dos
 ///   mitades de 16 bits intercambiadas.
-///
-/// Las tramas de ajustes (`0x20`) se reconocen pero no se
-/// interpretan en esta fase (la referencia las vuelca en
-/// preferencias de la app, no en telemetría), y las de
-/// diagnóstico no aportan datos. El protocolo clásico de
+/// - `flags 0x14`, comando Settings (`0x20`): ajustes guardados.
+///   La referencia los parsea por modelo, pero la máxima y la
+///   alarma 1 comparten offsets en TODAS sus variantes (máxima
+///   u16 LE en 1, alarma u16 LE en 3, en centésimas), así que se
+///   leen sin distinguir modelo. Se piden al conectar y tras
+///   cambiar la máxima o las alarmas.
 /// InMotion (transporte `ffe0`, CAN sobre BLE) queda **fuera**:
 /// esta fase cubre solo el V2, que es el de las ruedas actuales.
 ///
@@ -144,6 +145,17 @@ class InMotionAdapter extends BaseWheelAdapter {
   bool? get lifted => _lifted;
   bool? get lightOn => _lightOn;
 
+  /// Máxima y alarma que la rueda reporta tener guardadas
+  /// (última trama de ajustes), en km/h; null si aún no llega
+  /// ninguna. Son la verdad de la rueda, no lo que el usuario
+  /// escribió en los steppers de la tarjeta.
+  double? _reportedMaxKmh;
+  double? _reportedAlarmKmh;
+  @override
+  double? get reportedMaxKmh => _reportedMaxKmh;
+  @override
+  double? get reportedAlarmKmh => _reportedAlarmKmh;
+
   /// Datos por pack de la última trama de baterías: voltaje en
   /// V y temperatura tal como la reporta la rueda.
   double? get pack1VoltageV => _pack1VoltageV;
@@ -186,7 +198,15 @@ class InMotionAdapter extends BaseWheelAdapter {
         getBatteryDataRequest(),
         getStatisticsRequest(),
         getRealTimeDataRequest(),
+        getSettingsRequest(),
       ];
+
+  /// Pide los ajustes actuales (WheelLog: getCurrentSettings).
+  static Uint8List getSettingsRequest() => buildMessage(
+      flags: _flagDefault, command: _cmdSettings, data: const [0x20]);
+
+  @override
+  Uint8List? get settingsRequest => getSettingsRequest();
 
   @override
   List<Uint8List> pollRequests() => <Uint8List>[
@@ -291,7 +311,7 @@ class InMotionAdapter extends BaseWheelAdapter {
     }
     if (flags != _flagDefault) return false;
     return switch (command) {
-      _cmdSettings => false, // Reconocidos; no se interpretan aún.
+      _cmdSettings => _parseSettings(data),
       _cmdDiagnostic => false, // Sin datos de telemetría.
       _cmdBatteryRealTimeInfo => _parseBatteryRealTimeInfo(data),
       _cmdTotalStats => _parseTotalStats(data),
@@ -362,6 +382,23 @@ class InMotionAdapter extends BaseWheelAdapter {
     _pack2Temp = d[12];
     _chargeVoltageV = _u16(d, 16) / 100.0;
     _chargeCurrentA = _u16(d, 18) / 100.0;
+    return false;
+  }
+
+  /// Ajustes guardados (0x20): máxima y alarma 1, en centésimas.
+  /// La referencia los lee en los mismos offsets en todas sus
+  /// variantes por modelo (máxima u16 LE en 1, alarma u16 LE en
+  /// 3), así que no se distingue modelo aquí. Se exige la trama
+  /// completa (36 bytes de datos, el alcance que lee la
+  /// referencia) para no publicar valores de una trama truncada,
+  /// y una máxima mayor que cero (una rueda real nunca reporta
+  /// 0). No es telemetría en vivo: devuelve false.
+  bool _parseSettings(Uint8List d) {
+    if (d.length < 36) return false;
+    final max = _u16(d, 1) / 100.0;
+    if (max <= 0) return false;
+    _reportedMaxKmh = max;
+    _reportedAlarmKmh = _u16(d, 3) / 100.0;
     return false;
   }
 

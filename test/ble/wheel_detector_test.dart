@@ -53,6 +53,35 @@ void main() {
           containsAll([WheelBrand.inmotionV2, WheelBrand.ninebotZ]));
     });
 
+    test('NUS junto al serial compartido: el NUS decide (caso V11Y)', () {
+      final fp = WheelDetector.fromGatt(
+        serviceUuids: {GattUuid.nusService, GattUuid.serialService},
+        characteristicUuids: {
+          GattUuid.nusRxChar,
+          GattUuid.nusTxChar,
+          GattUuid.serialChar,
+        },
+      );
+      expect(fp.transport, GattUuid.transportNus);
+      expect(fp.candidates, contains(WheelBrand.inmotionV2));
+      expect(fp.candidates, isNot(contains(WheelBrand.kingsong)));
+    });
+
+    test('NUS junto a caracteres clásicos: el NUS decide', () {
+      final fp = WheelDetector.fromGatt(
+        serviceUuids: {GattUuid.nusService, GattUuid.inmotionWriteService},
+        characteristicUuids: {
+          GattUuid.nusRxChar,
+          GattUuid.nusTxChar,
+          GattUuid.inmotionReadChar,
+          GattUuid.inmotionWriteChar,
+        },
+      );
+      expect(fp.transport, GattUuid.transportNus);
+      expect(fp.candidates, contains(WheelBrand.inmotionV2));
+      expect(fp.candidates, isNot(contains(WheelBrand.inmotion)));
+    });
+
     test('sin transporte conocido no hay candidatos', () {
       final fp = WheelDetector.fromGatt(
         serviceUuids: {'0000180a-0000-1000-8000-00805f9b34fb'},
