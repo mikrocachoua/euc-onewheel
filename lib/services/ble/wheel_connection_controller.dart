@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/wheel_identity.dart';
 import '../../models/wheel_telemetry.dart';
+import '../app_log.dart';
 import 'adapters/begode_adapter.dart';
 import 'adapters/inmotion_adapter.dart';
 import 'adapters/kingsong_adapter.dart';
@@ -78,6 +79,24 @@ class WheelConnectionController extends ChangeNotifier {
   StreamSubscription<WheelIdentity>? _identitySub;
   StreamSubscription<bool>? _connectionSub;
   Timer? _pollTimer;
+
+  /// Diagnóstico de conexión (build 14): cuántas tramas sin
+  /// reconocer se han registrado en esta conexión (tope para no
+  /// inundar el registro) y si ya llegó la primera telemetría.
+  int _diagUnrecognizedFrames = 0;
+  bool _diagFirstLiveLogged = false;
+
+  /// Registra un paso del diagnóstico de conexión en el AppLog
+  /// (visible en Soporte → Compartir registros).
+  void _diag(String message) => AppLog.instance.add('Diagnóstico: $message');
+
+  /// Primeros bytes de una trama en hexadecimal, para el registro.
+  String _hexHead(List<int> frame, [int maxBytes = 16]) {
+    final shown = frame.take(maxBytes).map(
+        (b) => (b & 0xFF).toRadixString(16).padLeft(2, '0').toUpperCase());
+    final suffix = frame.length > maxBytes ? '…' : '';
+    return '${shown.join(' ')}$suffix';
+  }
 
   WheelLinkState get state => _state;
   String? get errorMessage => _errorMessage;
@@ -228,10 +247,18 @@ class WheelConnectionController extends ChangeNotifier {
       _telemetry = WheelTelemetry.neutral;
       _lastLiveAt = null;
       _brandSniffed = false;
+      _diagUnrecognizedFrames = 0;
+      _diagFirstLiveLogged = false;
       _connectionSub = ble.connectionChanges.listen((connected) {
         if (!connected) _onLinkLost();
       });
       _frameSub = link.frames.listen(_onFrame, onError: (_) {});
+      _diag('Conectando con ${target.name}');
+      _diag('Servicios GATT: ${link.serviceUuids.join(', ')}');
+      _diag('Características GATT: ${link.characteristicUuids.join(', ')}');
+      _diag('Huella: transporte=${link.transport}, '
+          'confianza=${link.fingerprint.transportConfidence}, '
+          'candidatas=${link.fingerprint.candidates.map((c) => c.name).join(', ')}');
       // InMotion V2 no emite sin que se le pregunte: con huella NUS
       // y nombre de InMotion, el adaptador se adjunta ya para que
       // sus peticiones iniciales provoquen la respuesta de la rueda.
@@ -244,7 +271,10 @@ class WheelConnectionController extends ChangeNotifier {
       if (preBrand != null) {
         _brandSniffed = true;
         _identity = _identity.copyWith(brand: preBrand);
+        _diag('Pre-attach: ${preBrand.name}');
         _attachAdapter(preBrand);
+      } else {
+        _diag('Pre-attach: ninguno');
       }
       if (preBrand == null && link.transport == GattUuid.transportNus) {
         // Sondeo: una InMotion V2 no emite si no se le pregunta,
@@ -255,6 +285,7 @@ class WheelConnectionController extends ChangeNotifier {
         // contesta con esa trama, así que no hay riesgo de
         // adjuntar mal. Red de seguridad para ruedas cuyo nombre
         // o huella no pasaron el pre-attach.
+        _diag('Sondeo V2 enviado (NUS sin pre-attach)');
         unawaited(link
             .write(InMotionAdapter.getCarTypeRequest())
             .catchError((_) {}));
@@ -299,8 +330,19 @@ class WheelConnectionController extends ChangeNotifier {
         candidates: link.fingerprint.candidates,
         transport: link.transport,
       );
-      if (brand == null) return;
+      if (brand == null) {
+        if (_diagUnrecognizedFrames < 5) {
+          _diag('Trama sin reconocer '
+              '(${frame.length} bytes): ${_hexHead(frame)}');
+        } else if (_diagUnrecognizedFrames == 5) {
+          _diag('Más tramas sin reconocer (se dejan de registrar)');
+        }
+        _diagUnrecognizedFrames++;
+        return;
+      }
       _brandSniffed = true;
+      _diag('Olfateo: ${brand.name} '
+          '(${frame.length} bytes): ${_hexHead(frame)}');
       _identity = _identity.copyWith(brand: brand);
       notifyListeners();
       _attachAdapter(brand);
@@ -309,7 +351,13 @@ class WheelConnectionController extends ChangeNotifier {
     final adapter = _adapter;
     if (adapter != null) {
       final isLive = adapter.decode(frame);
-      if (isLive) _lastLiveAt = DateTime.now();
+      if (isLive) {
+        _lastLiveAt = DateTime.now();
+        if (!_diagFirstLiveLogged) {
+          _diagFirstLiveLogged = true;
+          _diag('Primera telemetría en vivo recibida');
+        }
+      }
     }
   }
 
@@ -326,7 +374,10 @@ class WheelConnectionController extends ChangeNotifier {
       // tramas reales con los que verificar su parseo.
       _ => null, // Las demás marcas llegan en sus propias fases.
     };
-    if (adapter == null) return;
+    if (adapter == null) {
+      _diag('Marca ${brand.name} sin adaptador (solo detectada)');
+      return;
+    }
     _adapter = adapter;
     _telemetrySub = adapter.telemetryStream.listen((t) {
       _telemetry = t;
@@ -343,7 +394,10 @@ class WheelConnectionController extends ChangeNotifier {
     });
     final link = _link;
     if (link != null) {
-      for (final request in adapter.initialRequests()) {
+      final initial = adapter.initialRequests();
+      _diag('Adaptador ${brand.name} adjuntado; '
+          'peticiones iniciales: ${initial.length}');
+      for (final request in initial) {
         unawaited(link.write(request).catchError((_) {}));
       }
     }
@@ -366,6 +420,7 @@ class WheelConnectionController extends ChangeNotifier {
   /// se limpia todo SIN enviar ninguna acción a la rueda.
   void _onLinkLost() {
     if (_state != WheelLinkState.connected) return;
+    _diag('Enlace perdido');
     unawaited(_teardownLink());
     _telemetry = WheelTelemetry.neutral;
     _lastLiveAt = null;

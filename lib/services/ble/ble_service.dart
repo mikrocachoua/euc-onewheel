@@ -44,6 +44,8 @@ class BleLink {
     required this.fingerprint,
     required this.frames,
     required this.write,
+    this.serviceUuids = const {},
+    this.characteristicUuids = const {},
   });
 
   final BluetoothDevice device;
@@ -53,6 +55,12 @@ class BleLink {
 
   /// Huella GATT del dispositivo (marcas candidatas).
   final GattFingerprint fingerprint;
+
+  /// UUID de servicios y características descubiertos, tal cual los
+  /// anunció la rueda (build de diagnóstico: permite ver si una
+  /// rueda expone servicios extra o variantes que la huella resume).
+  final Set<String> serviceUuids;
+  final Set<String> characteristicUuids;
 
   /// Tramas crudas que llegan por la característica de notificación.
   final Stream<List<int>> frames;
@@ -246,6 +254,8 @@ class BleService {
       transport: fingerprint.transport!,
       fingerprint: fingerprint,
       frames: notify.onValueReceived,
+      serviceUuids: serviceUuids,
+      characteristicUuids: charUuids,
       write: (data, {bool withoutResponse = false}) =>
           write.write(data, withoutResponse: withoutResponse),
     );
