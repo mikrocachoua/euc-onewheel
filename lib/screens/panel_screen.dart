@@ -233,26 +233,47 @@ class _PanelScreenState extends State<PanelScreen> {
 
   Widget _wheelCard(WheelTelemetry? live, bool demo) {
     if (live == null) {
+      // Build 15: si hay una rueda conectada por Bluetooth pero
+      // sin adaptador (marca sin identificar), el Panel la nombra
+      // en vez de decir «Sin rueda conectada» a secas.
+      final ctrl = widget.controller;
+      final advertisedName = ctrl?.identity.advertisedName;
+      final connectedUnidentified = !demo &&
+          ctrl != null &&
+          ctrl.state == WheelLinkState.connected &&
+          advertisedName != null &&
+          advertisedName.isNotEmpty;
       return SurfaceCard(
         glassBlur: true,
         child: Row(
           children: [
-            const GlassIconTile(icon: Icons.bluetooth_disabled),
+            GlassIconTile(
+              icon: connectedUnidentified
+                  ? Icons.bluetooth_connected
+                  : Icons.bluetooth_disabled,
+            ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Sin rueda conectada',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  SizedBox(height: 4),
                   Text(
-                    'Conecta tu rueda por Bluetooth en la pestaña '
-                    'Dispositivos: la app detecta automáticamente su '
-                    'marca y modelo, sea InMotion, KingSong, '
-                    'Begode/Gotway, Veteran/LeaperKim o Ninebot, y este '
-                    'panel mostrará su telemetría en vivo.',
+                      connectedUnidentified
+                          ? '$advertisedName conectada'
+                          : 'Sin rueda conectada',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    connectedUnidentified
+                        ? 'La rueda está conectada por Bluetooth pero '
+                            'la app aún no identifica su marca; su '
+                            'telemetría aparecerá cuando se identifique.'
+                        : 'Conecta tu rueda por Bluetooth en la pestaña '
+                            'Dispositivos: la app detecta automáticamente su '
+                            'marca y modelo, sea InMotion, KingSong, '
+                            'Begode/Gotway, Veteran/LeaperKim o Ninebot, y este '
+                            'panel mostrará su telemetría en vivo.',
                     style: TextStyle(color: subText, fontSize: 13),
                   ),
                 ],

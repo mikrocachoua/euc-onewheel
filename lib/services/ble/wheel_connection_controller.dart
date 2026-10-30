@@ -80,6 +80,29 @@ class WheelConnectionController extends ChangeNotifier {
   StreamSubscription<bool>? _connectionSub;
   Timer? _pollTimer;
 
+  /// Build 15: temporizador del sondeo KingSong (se cancela al
+  /// desmontar el enlace).
+  Timer? _ksProbeTimer;
+
+  /// Build 15: ¿debe enviarse el sondeo KingSong? Solo cuando el
+  /// transporte es serie compartida, KingSong está entre las
+  /// candidatas y no ha llegado ninguna trama (ni reconocida ni
+  /// sin reconocer) ni hay adaptador adjunto. Las peticiones son
+  /// de solo lectura (nombre y serie), las mismas que el adaptador
+  /// KingSong manda al adjuntarse.
+  static bool shouldSendKingsongProbe({
+    required String? transport,
+    required Set<WheelBrand> candidates,
+    required bool brandSniffed,
+    required bool hasAdapter,
+    required int unrecognizedFrames,
+  }) =>
+      transport == GattUuid.transportSharedSerial &&
+      candidates.contains(WheelBrand.kingsong) &&
+      !brandSniffed &&
+      !hasAdapter &&
+      unrecognizedFrames == 0;
+
   /// Diagnóstico de conexión (build 14): cuántas tramas sin
   /// reconocer se han registrado en esta conexión (tope para no
   /// inundar el registro) y si ya llegó la primera telemetría.
@@ -290,6 +313,47 @@ class WheelConnectionController extends ChangeNotifier {
             .write(InMotionAdapter.getCarTypeRequest())
             .catchError((_) {}));
       }
+      if (preBrand == null &&
+          link.transport == GattUuid.transportSharedSerial &&
+          link.fingerprint.candidates.contains(WheelBrand.kingsong)) {
+        // Sondeo KS (build 15): algunas ruedas KingSong nuevas
+        // (KS-S22, registro build 14) no emiten nada por ffe1
+        // hasta que se les pregunta: dos minutos de silencio en
+        // dos sesiones. Si a los 3 s sigue sin llegar ninguna
+        // trama, se manda el kick de inicio de stream (0x5E) más
+        // las dos peticiones de solo lectura del adaptador
+        // (nombre y serie); cualquier respuesta AA 55 la reconoce
+        // el olfateo existente y adjunta el adaptador. Si la rueda
+        // ya habló, el sondeo no se envía.
+        _ksProbeTimer?.cancel();
+        _ksProbeTimer = Timer(const Duration(seconds: 3), () {
+          final currentLink = _link;
+          if (currentLink == null ||
+              currentLink != link ||
+              _state != WheelLinkState.connected ||
+              !shouldSendKingsongProbe(
+                transport: currentLink.transport,
+                candidates: currentLink.fingerprint.candidates,
+                brandSniffed: _brandSniffed,
+                hasAdapter: _adapter != null,
+                unrecognizedFrames: _diagUnrecognizedFrames,
+              )) {
+            return;
+          }
+          _diag('Sondeo KS enviado (kick 0x5E + nombre + serie)');
+          unawaited(currentLink
+              .write(KingSongAdapter.buildKickRequest())
+              .catchError((_) {}));
+          unawaited(currentLink
+              .write(KingSongAdapter.buildReadRequest(
+                  KingSongAdapter.requestName))
+              .catchError((_) {}));
+          unawaited(currentLink
+              .write(KingSongAdapter.buildReadRequest(
+                  KingSongAdapter.requestSerial))
+              .catchError((_) {}));
+        });
+      }
       _setState(WheelLinkState.connected);
     } on BleException catch (e) {
       _link = null;
@@ -431,6 +495,8 @@ class WheelConnectionController extends ChangeNotifier {
   Future<void> _teardownLink() async {
     _pollTimer?.cancel();
     _pollTimer = null;
+    _ksProbeTimer?.cancel();
+    _ksProbeTimer = null;
     await _frameSub?.cancel();
     _frameSub = null;
     await _telemetrySub?.cancel();

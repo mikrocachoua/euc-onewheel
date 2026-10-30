@@ -40,6 +40,16 @@ class KingSongAdapter extends BaseWheelAdapter {
   static const int requestName = 0x9B;
   static const int requestSerial = 0x63;
 
+  /// Kick de inicio de stream (build 15): firmwares KingSong
+  /// nuevos no emiten nada tras suscribirse hasta recibir esta
+  /// trama una vez (pasada la ventana post-suscripción en la que
+  /// descartan escrituras). Es una consulta benigna, sin pitido
+  /// ni destello, con el mismo formato de 20 bytes que las
+  /// peticiones de lectura.
+  static const int streamStartKick = 0x5E;
+
+  static Uint8List buildKickRequest() => buildReadRequest(streamStartKick);
+
   int? _pedalMode;
   int? _fanStatus;
   int? _chargingStatus;
